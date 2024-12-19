@@ -94,62 +94,46 @@
         .response-options button:hover {
             background-color: #0056b3;
         }
-
-        .input-container {
-            display: flex;
-            flex-direction: column;
-            padding: 10px;
-            border-top: 1px solid #ddd;
-        }
-
-        .typing-indicator {
-            font-size: 14px;
-            color: #777;
-            display: none; /* Unsichtbar bis aktiviert */
-            margin-bottom: 5px;
-        }
     </style>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const messagesContainer = document.querySelector('.chat-messages');
             const responseOptions = document.querySelector('.response-options');
-            const typingIndicator = document.querySelector('.typing-indicator');
 
             // Zeige direkt die User-Nachricht an
             messagesContainer.innerHTML += `
                 <div class="message user-message">Mich stört es, dass die Ausländer nur hierherkommen, um unseren Sozialstaat auszunutzen</div>
             `;
 
-            // Funktion für den "Max schreibt..."-Ladeeffekt
+            // Zeige den "Max schreibt..."-Indikator an der Antwortstelle
+            const botMessageContainer = document.createElement('div');
+            botMessageContainer.classList.add('message', 'bot-message');
+            botMessageContainer.innerHTML = `
+                <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
+                <span id="typing-indicator">Max schreibt ...</span>
+            `;
+            messagesContainer.appendChild(botMessageContainer);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Animation für "Max denkt..."
             let dots = 0;
             const typingAnimation = setInterval(() => {
                 dots = (dots % 3) + 1;
-                typingIndicator.textContent = `Max überlegt${".".repeat(dots)}`;
+                document.getElementById('typing-indicator').textContent = `Max schreibt${".".repeat(dots)}`;
             }, 500);
-
-            // Zeige den "Max schreibt..."-Indikator
-            typingIndicator.style.display = "block";
 
             // Nach 5 Sekunden die Bot-Antwort anzeigen
             setTimeout(() => {
                 clearInterval(typingAnimation); // Stoppe die Animation
-                typingIndicator.style.display = "none"; // Entferne den Indikator
+                const typingIndicator = document.getElementById('typing-indicator');
+                typingIndicator.textContent = ''; // Entferne den "Max schreibt..." Text
 
-                const botMessageContainer = document.createElement('div');
-                botMessageContainer.classList.add('message', 'bot-message');
-                botMessageContainer.innerHTML = `
-                    <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
-                    <span></span>
-                `;
-
-                messagesContainer.appendChild(botMessageContainer);
-
-                const botMessageText = `Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen. 😊 Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.`;
+                const botMessageText = `Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen 😊. Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.`;
 
                 let index = 0;
                 const typeWriterEffect = setInterval(() => {
                     if (index < botMessageText.length) {
-                        botMessageContainer.querySelector('span').textContent += botMessageText[index];
+                        typingIndicator.textContent += botMessageText[index];
                         index++;
                         messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scrollt nach unten
                     } else {
@@ -162,16 +146,23 @@
 
         async function sendMessage(message = null) {
             const messagesContainer = document.querySelector('.chat-messages');
-            const typingIndicator = document.querySelector('.typing-indicator');
 
             messagesContainer.innerHTML += `<div class="message user-message">${message}</div>`;
 
-            typingIndicator.style.display = "block"; // Zeige den Indikator
+            const botMessageContainer = document.createElement('div');
+            botMessageContainer.classList.add('message', 'bot-message');
+            botMessageContainer.innerHTML = `
+                <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
+                <span id="typing-indicator">Max schreibt ...</span>
+            `;
+            messagesContainer.appendChild(botMessageContainer);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
+            // Animation für "Max schreibt..."
             let dots = 0;
             const typingAnimation = setInterval(() => {
                 dots = (dots % 3) + 1;
-                typingIndicator.textContent = `Max schreibt${".".repeat(dots)}`;
+                document.getElementById('typing-indicator').textContent = `Max schreibt${".".repeat(dots)}`;
             }, 500);
 
             const response = await fetch('/send', {
@@ -184,21 +175,13 @@
 
             const data = await response.json();
             clearInterval(typingAnimation); // Stoppe die Animation
-            typingIndicator.style.display = "none"; // Entferne den Indikator
-
-            const botMessageContainer = document.createElement('div');
-            botMessageContainer.classList.add('message', 'bot-message');
-            botMessageContainer.innerHTML = `
-                <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
-                <span></span>
-            `;
-
-            messagesContainer.appendChild(botMessageContainer);
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.textContent = ''; // Entferne den "Max schreibt..." Text
 
             let index = 0;
             const typeWriterEffect = setInterval(() => {
                 if (index < data.reply.length) {
-                    botMessageContainer.querySelector('span').textContent += data.reply[index];
+                    typingIndicator.textContent += data.reply[index];
                     index++;
                     messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scrollt nach unten
                 } else {
@@ -217,11 +200,6 @@
             <button onclick="sendMessage('Welche rechtlichen Vorgaben gibt es?')">Welche rechtlichen Vorgaben gibt es?</button>
             <button onclick="sendMessage('...')">....</button>
         </div>
-        <div class="input-container">
-            <div class="typing-indicator">Max schreibt ...</div>
-        </div>
     </div>
 </body>
 </html>
-
-
