@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>ChatBot Johannes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        #chat-container {
+            width: 50%;
+            margin: 50px auto;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #chat-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            font-size: 18px;
+        }
+
+        #chatbox {
+            height: 400px;
+            overflow-y: scroll;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 8px 12px;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+
+        .user {
+            background-color: #E0E0E0;
+            color: #000;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .bot {
+            background-color: #4CAF50;
+            color: white;
+            text-align: left;
+        }
+
+        #user-input {
+            display: flex;
+            padding: 10px;
+        }
+
+        #user-input input {
+            flex: 1;
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #user-input button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        #user-input button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="chat-header">ChatBot Johannes</div>
+        <div id="chatbox">
+            <!-- Nachrichten werden hier angezeigt -->
+            <div class="message bot">Hallo! Ich bin Johannes, dein Chatbot. 😊</div>
+        </div>
+        <div id="user-input">
+            <input type="text" id="inputField" placeholder="Schreibe eine Nachricht..." />
+            <button onclick="sendMessage()">Senden</button>
+        </div>
+    </div>
+
+    <script>
+        // Simulierter Bot-Response-Text
+        const CHATBOT_RESPONSE = "Hm, ich verstehe, dass das ein Thema ist, das viele bewegt 🤔. Wenn ich mir die Forschung dazu anschaue, ergibt sich allerdings ein anderes Bild 🤔. "
+            + "Die meisten Menschen kommen nicht nach Deutschland, um Sozialleistungen zu erhalten. Viele suchen Arbeit, bessere Bildung oder fliehen vor Krieg und Verfolgung.";
+
+        function sendMessage() {
+            const userInput = document.getElementById("inputField");
+            const chatbox = document.getElementById("chatbox");
+
+            // Nutzer-Nachricht anzeigen
+            const userMessage = userInput.value.trim();
+            if (userMessage !== "") {
+                const userDiv = document.createElement("div");
+                userDiv.className = "message user";
+                userDiv.innerHTML = `<strong>Du:</strong> ${userMessage}`;
+                chatbox.appendChild(userDiv);
+
+                // Scroll zum neuesten Eintrag
+                chatbox.scrollTop = chatbox.scrollHeight;
+
+                // Eingabe zurücksetzen
+                userInput.value = "";
+
+                // Verzögerung für die Bot-Antwort simulieren
+                setTimeout(() => {
+                    const botDiv = document.createElement("div");
+                    botDiv.className = "message bot";
+                    botDiv.innerHTML = `<strong>Johannes:</strong> ${CHATBOT_RESPONSE}`;
+                    chatbox.appendChild(botDiv);
+
+                    // Scroll zum neuesten Eintrag
+                    chatbox.scrollTop = chatbox.scrollHeight;
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>
+

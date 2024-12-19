@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatBot Max</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+
+        .chat-container {
+            width: 400px;
+            height: 600px;
+            margin: 50px auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: #000;
+            color: #fff;
+            padding: 15px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 70%;
+        }
+
+        .bot-message {
+            display: flex;
+            align-items: flex-start;
+            background-color: #f1f1f1;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 70%;
+        }
+
+        .bot-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-image: url('templates/Avatar_male_07.jpg');
+            background-size: cover;
+            margin-right: 10px;
+        }
+
+        .response-options {
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .response-options button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .response-options button:hover {
+            background-color: #0056b3;
+        }
+
+        .input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .input-container button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+    </style>
+    <script>
+        async function sendMessage(message = null) {
+            const input = document.querySelector('input');
+            if (!message) message = input.value;
+            if (!message) return;
+
+            const messagesContainer = document.querySelector('.chat-messages');
+            messagesContainer.innerHTML += `<div class="message user-message">${message}</div>`;
+            input.value = '';
+
+            const response = await fetch('/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message }),
+            });
+
+            const data = await response.json();
+            messagesContainer.innerHTML += `<div class="message bot-message"><img class="bot-avatar" src="templates/Avatar_male_07.jpg" alt="ChatBot Avatar">${data.reply}</div>`;
+
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    </script>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">ChatBot Max</div>
+        <div class="chat-messages">
+            <div class="message user-message">Mich stört es, dass die Ausländer nur hierherkommen, um unseren Sozialstaat auszunutzen</div>
+            <div class="message bot-message">
+                <img class="bot-avatar" src="C:/Users/maike/Desktop/MA KI/chatbot-web/templates/Avatar_male_07.jpg" alt="ChatBot Avatar" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen. 😊 Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.
+            </div>
+        </div>
+        <div class="response-options">
+            <button onclick="sendMessage('Was sind das für Studien?')">Was sind das für Studien?</button>
+            <button onclick="sendMessage('Welche rechtlichen Vorgaben gibt es?')">Welche rechtlichen Vorgaben gibt es?</button>
+            <button onclick="sendMessage('...')">....</button>
+        </div>
+        <div class="input-container">
+            <input type="text" placeholder="Sende eine Nachricht an Max...">
+            <button onclick="sendMessage()">Senden</button>
+        </div>
+    </div>
+</body>
+</html>
