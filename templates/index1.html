@@ -78,6 +78,7 @@
             display: flex;
             gap: 10px;
             justify-content: center;
+            visibility: hidden; /* Unsichtbar, bis die Bot-Antwort angezeigt wird */
         }
 
         .response-options button {
@@ -120,6 +121,32 @@
         }
     </style>
     <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const messagesContainer = document.querySelector('.chat-messages');
+            const responseOptions = document.querySelector('.response-options');
+
+            // Zeige direkt die User-Nachricht an
+            messagesContainer.innerHTML += `
+                <div class="message user-message">Mich stört es, dass die Ausländer nur hierherkommen, um unseren Sozialstaat auszunutzen</div>
+            `;
+
+            // Nach 5 Sekunden die Bot-Antwort anzeigen
+            setTimeout(() => {
+                messagesContainer.innerHTML += `
+                    <div class="message bot-message">
+                        <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
+                        <span>Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen. 😊 Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.</span>
+                    </div>
+                `;
+
+                // Scroll nach unten, um die neue Nachricht anzuzeigen
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+                // Mache die Auswahloptionen sichtbar
+                responseOptions.style.visibility = "visible";
+            }, 5000); // 5 Sekunden Verzögerung
+        });
+
         async function sendMessage(message = null) {
             const input = document.querySelector('input');
             if (!message) message = input.value;
@@ -165,4 +192,3 @@
     </div>
 </body>
 </html>
-
