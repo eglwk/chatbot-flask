@@ -78,7 +78,7 @@
             display: flex;
             gap: 10px;
             justify-content: center;
-            visibility: hidden; /* Unsichtbar, bis die Bot-Antwort angezeigt wird */
+            visibility: hidden;
         }
 
         .response-options button {
@@ -100,95 +100,92 @@
             const messagesContainer = document.querySelector('.chat-messages');
             const responseOptions = document.querySelector('.response-options');
 
-            // Zeige direkt die User-Nachricht an
-            messagesContainer.innerHTML += `
-                <div class="message user-message">Mich stört es, dass die Ausländer nur hierherkommen, um unseren Sozialstaat auszunutzen</div>
-            `;
+            function addBotMessage(text) {
+                const botMessageContainer = document.createElement('div');
+                botMessageContainer.classList.add('message', 'bot-message');
+                botMessageContainer.innerHTML = `
+                    <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
+                    <span>${text}</span>
+                `;
+                messagesContainer.appendChild(botMessageContainer);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
 
-            // Zeige den "Max schreibt..."-Indikator an der Antwortstelle
-            const botMessageContainer = document.createElement('div');
-            botMessageContainer.classList.add('message', 'bot-message');
-            botMessageContainer.innerHTML = `
-                <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
-                <span id="typing-indicator">Max schreibt ...</span>
-            `;
-            messagesContainer.appendChild(botMessageContainer);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            function addUserMessage(text) {
+                const userMessageContainer = document.createElement('div');
+                userMessageContainer.classList.add('message', 'user-message');
+                userMessageContainer.textContent = text;
+                messagesContainer.appendChild(userMessageContainer);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
 
-            // Animation für "Max denkt..."
-            let dots = 0;
-            const typingAnimation = setInterval(() => {
-                dots = (dots % 3) + 1;
-                document.getElementById('typing-indicator').textContent = `Max schreibt${".".repeat(dots)}`;
-            }, 500);
+            function addTypingIndicator() {
+                const botMessageContainer = document.createElement('div');
+                botMessageContainer.classList.add('message', 'bot-message');
+                botMessageContainer.innerHTML = `
+                    <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
+                    <span id="typing-indicator">Max schreibt ...</span>
+                `;
+                messagesContainer.appendChild(botMessageContainer);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                return botMessageContainer.querySelector('#typing-indicator');
+            }
 
-            // Nach 5 Sekunden die Bot-Antwort anzeigen
-            setTimeout(() => {
-                clearInterval(typingAnimation); // Stoppe die Animation
-                const typingIndicator = document.getElementById('typing-indicator');
-                typingIndicator.textContent = ''; // Entferne den "Max schreibt..." Text
-
-                const botMessageText = `Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen 😊. Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.`;
-
+            function addTypewriterEffect(text, typingIndicator, callback) {
                 let index = 0;
                 const typeWriterEffect = setInterval(() => {
-                    if (index < botMessageText.length) {
-                        typingIndicator.textContent += botMessageText[index];
+                    if (index < text.length) {
+                        typingIndicator.textContent += text[index];
                         index++;
                         messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scrollt nach unten
                     } else {
                         clearInterval(typeWriterEffect);
-                        responseOptions.style.visibility = "visible"; // Zeige die Auswahloptionen
+                        if (callback) callback();
                     }
                 }, 50); // Buchstabe für Buchstabe alle 50ms
-            }, 5000); // 5 Sekunden Verzögerung
-        });
+            }
 
-        async function sendMessage(message = null) {
-            const messagesContainer = document.querySelector('.chat-messages');
+            function sendMessage(userMessage) {
+                addUserMessage(userMessage);
 
-            messagesContainer.innerHTML += `<div class="message user-message">${message}</div>`;
+                // Bot Typing Indicator
+                const typingIndicator = addTypingIndicator();
 
-            const botMessageContainer = document.createElement('div');
-            botMessageContainer.classList.add('message', 'bot-message');
-            botMessageContainer.innerHTML = `
-                <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
-                <span id="typing-indicator">Max schreibt ...</span>
-            `;
-            messagesContainer.appendChild(botMessageContainer);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                // Simulate API Call
+                setTimeout(() => {
+                    const botResponse = "Das ist eine simulierte Antwort des Chatbots, die fortlaufend generiert wird.";
+                    typingIndicator.textContent = ""; // Clear Typing Indicator
 
-            // Animation für "Max schreibt..."
-            let dots = 0;
-            const typingAnimation = setInterval(() => {
-                dots = (dots % 3) + 1;
-                document.getElementById('typing-indicator').textContent = `Max schreibt${".".repeat(dots)}`;
-            }, 500);
+                    addTypewriterEffect(botResponse, typingIndicator, () => {
+                        responseOptions.style.visibility = "visible"; // Zeige die Auswahloptionen
+                    });
+                }, 2000); // Simulate delay for bot response
+            }
 
-            const response = await fetch('/send', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message }),
-            });
+            // Initial User and Bot Messages
+            addUserMessage("Mich stört es, dass die Ausländer nur hierherkommen, um unseren Sozialstaat auszunutzen");
 
-            const data = await response.json();
-            clearInterval(typingAnimation); // Stoppe die Animation
-            const typingIndicator = document.getElementById('typing-indicator');
-            typingIndicator.textContent = ''; // Entferne den "Max schreibt..." Text
+            const typingIndicator = addTypingIndicator();
 
-            let index = 0;
-            const typeWriterEffect = setInterval(() => {
-                if (index < data.reply.length) {
-                    typingIndicator.textContent += data.reply[index];
-                    index++;
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scrollt nach unten
-                } else {
-                    clearInterval(typeWriterEffect);
+            setTimeout(() => {
+                typingIndicator.textContent = ""; // Clear Typing Indicator
+
+                const botMessageText = "Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen. 😊 Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.";
+
+                addTypewriterEffect(botMessageText, typingIndicator, () => {
+                    responseOptions.style.visibility = "visible"; // Zeige die Auswahloptionen
+                });
+            }, 5000); // Initial delay for first bot message
+
+            responseOptions.addEventListener("click", (event) => {
+                if (event.target.tagName === "BUTTON") {
+                    const userMessage = event.target.textContent;
+                    responseOptions.style.visibility = "hidden"; // Verstecke die Auswahloptionen
+
+                    sendMessage(userMessage);
                 }
-            }, 50); // Buchstabe für Buchstabe alle 50ms
-        }
+            });
+        });
     </script>
 </head>
 <body>
@@ -196,9 +193,9 @@
         <div class="chat-header">ChatBot Max</div>
         <div class="chat-messages"></div>
         <div class="response-options">
-            <button onclick="sendMessage('Was sind das für Studien?')">Was sind das für Studien?</button>
-            <button onclick="sendMessage('Welche rechtlichen Vorgaben gibt es?')">Welche rechtlichen Vorgaben gibt es?</button>
-            <button onclick="sendMessage('...')">....</button>
+            <button>Was sind das für Studien?</button>
+            <button>Welche rechtlichen Vorgaben gibt es?</button>
+            <button>...</button>
         </div>
     </div>
 </body>
