@@ -124,11 +124,20 @@
                 botMessageContainer.classList.add('message', 'bot-message');
                 botMessageContainer.innerHTML = `
                     <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
-                    <span id="typing-indicator">Max schreibt ...</span>
+                    <span id="typing-indicator">Max schreibt</span>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 return botMessageContainer.querySelector('#typing-indicator');
+            }
+
+            function addLoadingDots(typingIndicator) {
+                let dots = 0;
+                const interval = setInterval(() => {
+                    dots = (dots % 3) + 1;
+                    typingIndicator.textContent = `Max schreibt${".".repeat(dots)}`;
+                }, 500);
+                return interval;
             }
 
             function addTypewriterEffect(text, typingIndicator, callback) {
@@ -150,9 +159,11 @@
 
                 // Bot Typing Indicator
                 const typingIndicator = addTypingIndicator();
+                const loadingDotsInterval = addLoadingDots(typingIndicator);
 
                 // Simulate API Call
                 setTimeout(() => {
+                    clearInterval(loadingDotsInterval); // Stop loading dots
                     const botResponse = "Das ist eine simulierte Antwort des Chatbots, die fortlaufend generiert wird.";
                     typingIndicator.textContent = ""; // Clear Typing Indicator
 
@@ -166,8 +177,10 @@
             addUserMessage("Mich stört es, dass die Ausländer nur hierherkommen, um unseren Sozialstaat auszunutzen");
 
             const typingIndicator = addTypingIndicator();
+            const loadingDotsInterval = addLoadingDots(typingIndicator);
 
             setTimeout(() => {
+                clearInterval(loadingDotsInterval); // Stop loading dots
                 typingIndicator.textContent = ""; // Clear Typing Indicator
 
                 const botMessageText = "Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen. 😊 Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.";
@@ -200,3 +213,4 @@
     </div>
 </body>
 </html>
+
