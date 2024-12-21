@@ -22,15 +22,36 @@
             flex-direction: column;
             background: #fff;
             overflow: hidden;
+            position: relative;
         }
 
         .chat-header {
-            background-color: #000;
+            background-color: #666; /* Changed to a darker gray */
             color: #fff;
             padding: 15px;
-            text-align: center;
+            text-align: left;
             font-size: 18px;
             font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: transparent;
+            color: #fff;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
         }
 
         .chat-messages {
@@ -40,6 +61,25 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+        }
+
+        .bot-message-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .bot-name {
+            font-weight: bold;
+            margin-right: 5px;
+            margin-top: 10px; /* Adjusted to position Max: slightly lower */
+        }
+
+        .bot-message {
+            background-color: #f1f1f1;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 70%;
         }
 
         .message {
@@ -54,22 +94,6 @@
             padding: 10px 15px;
             border-radius: 15px;
             max-width: 70%;
-        }
-
-        .bot-message {
-            display: flex;
-            align-items: flex-start;
-            background-color: #f1f1f1;
-            padding: 10px 15px;
-            border-radius: 15px;
-            max-width: 70%;
-        }
-
-        .bot-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
         }
 
         .response-options {
@@ -99,13 +123,20 @@
         document.addEventListener("DOMContentLoaded", () => {
             const messagesContainer = document.querySelector('.chat-messages');
             const responseOptions = document.querySelector('.response-options');
+            const closeButton = document.querySelector('.close-button');
+
+            closeButton.addEventListener('click', () => {
+                document.querySelector('.chat-container').style.display = 'none';
+            });
 
             function addBotMessage(text) {
                 const botMessageContainer = document.createElement('div');
-                botMessageContainer.classList.add('message', 'bot-message');
+                botMessageContainer.classList.add('bot-message-container');
                 botMessageContainer.innerHTML = `
-                    <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
-                    <span>${text}</span>
+                    <div class="bot-name">Max:</div>
+                    <div class="bot-message">
+                        <span>${text}</span>
+                    </div>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -121,10 +152,12 @@
 
             function addTypingIndicator() {
                 const botMessageContainer = document.createElement('div');
-                botMessageContainer.classList.add('message', 'bot-message');
+                botMessageContainer.classList.add('bot-message-container');
                 botMessageContainer.innerHTML = `
-                    <img class="bot-avatar" src="/static/Avatar_male_07.jpg" alt="ChatBot Avatar">
-                    <span id="typing-indicator">Max schreibt</span>
+                    <div class="bot-name">Max:</div>
+                    <div class="bot-message">
+                        <span id="typing-indicator">Max schreibt ...</span>
+                    </div>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -203,7 +236,11 @@
 </head>
 <body>
     <div class="chat-container">
-        <div class="chat-header">ChatBot Max</div>
+        <div class="chat-header">
+            <img src="/static/Avatar_male_07.jpg" alt="ChatBot Max">
+            ChatBot Max
+            <button class="close-button">×</button>
+        </div>
         <div class="chat-messages"></div>
         <div class="response-options">
             <button>Was sind das für Studien?</button>
