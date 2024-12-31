@@ -26,27 +26,27 @@
         }
 
         .chat-header {
-            background-color: #666; /* Changed to a darker gray */
+            background-color: #666; 
             color: #fff;
-            padding: 15px;
-            text-align: left;
-            font-size: 18px;
-            font-weight: bold;
+            padding: 0 15px;
+            height: 60px; /* Höhe des Profilbildes */
             display: flex;
             align-items: center;
+            font-size: 18px;
+            font-weight: bold;
             gap: 10px;
         }
 
         .chat-header img {
-            width: 40px;
-            height: 40px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
         }
 
         .close-button {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 15px;
+            right: 15px;
             background-color: transparent;
             color: #fff;
             border: none;
@@ -72,7 +72,7 @@
         .bot-name {
             font-weight: bold;
             margin-right: 5px;
-            margin-top: 10px; /* Adjusted to position Max: slightly lower */
+            margin-top: 10px; 
         }
 
         .bot-message {
@@ -95,39 +95,10 @@
             border-radius: 15px;
             max-width: 70%;
         }
-
-        .response-options {
-            padding: 15px;
-            border-top: 1px solid #ddd;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            visibility: hidden;
-        }
-
-        .response-options button {
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .response-options button:hover {
-            background-color: #0056b3;
-        }
     </style>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const messagesContainer = document.querySelector('.chat-messages');
-            const responseOptions = document.querySelector('.response-options');
-            const closeButton = document.querySelector('.close-button');
-
-            closeButton.addEventListener('click', () => {
-                document.querySelector('.chat-container').style.display = 'none';
-            });
 
             function addBotMessage(text) {
                 const botMessageContainer = document.createElement('div');
@@ -135,7 +106,7 @@
                 botMessageContainer.innerHTML = `
                     <div class="bot-name">Max:</div>
                     <div class="bot-message">
-                        <span>${text}</span>
+                        ${text}
                     </div>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
@@ -151,33 +122,41 @@
             }
 
             function addTypingIndicator() {
-                const botMessageContainer = document.createElement('div');
-                botMessageContainer.classList.add('bot-message-container');
-                botMessageContainer.innerHTML = `
-                    <div class="bot-name">Max:</div>
+                const typingIndicatorContainer = document.createElement('div');
+                typingIndicatorContainer.classList.add('bot-message-container');
+                typingIndicatorContainer.innerHTML = `
                     <div class="bot-message">
                         <span id="typing-indicator">Max schreibt ...</span>
                     </div>
                 `;
-                messagesContainer.appendChild(botMessageContainer);
+                messagesContainer.appendChild(typingIndicatorContainer);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                return botMessageContainer.querySelector('#typing-indicator');
+                return typingIndicatorContainer;
             }
 
             function addLoadingDots(typingIndicator) {
                 let dots = 0;
                 const interval = setInterval(() => {
                     dots = (dots % 3) + 1;
-                    typingIndicator.textContent = `Max schreibt${".".repeat(dots)}`;
+                    typingIndicator.textContent = `Max schreibt ${".".repeat(dots)}`;
                 }, 500);
                 return interval;
             }
 
-            function addTypewriterEffect(text, typingIndicator, callback) {
+            function addTypewriterEffect(text, callback) {
                 let index = 0;
+                const botMessageContainer = document.createElement('div');
+                botMessageContainer.classList.add('bot-message-container');
+                botMessageContainer.innerHTML = `
+                    <div class="bot-name">Max:</div>
+                    <div class="bot-message"><span id="bot-text"></span></div>
+                `;
+                messagesContainer.appendChild(botMessageContainer);
+                const botTextElement = botMessageContainer.querySelector('#bot-text');
+
                 const typeWriterEffect = setInterval(() => {
                     if (index < text.length) {
-                        typingIndicator.textContent += text[index];
+                        botTextElement.textContent += text[index];
                         index++;
                         messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scrollt nach unten
                     } else {
@@ -187,50 +166,24 @@
                 }, 50); // Buchstabe für Buchstabe alle 50ms
             }
 
-            function sendMessage(userMessage) {
-                addUserMessage(userMessage);
-
-                // Bot Typing Indicator
-                const typingIndicator = addTypingIndicator();
-                const loadingDotsInterval = addLoadingDots(typingIndicator);
-
-                // Simulate API Call
-                setTimeout(() => {
-                    clearInterval(loadingDotsInterval); // Stop loading dots
-                    const botResponse = "Das ist eine simulierte Antwort des Chatbots, die fortlaufend generiert wird.";
-                    typingIndicator.textContent = ""; // Clear Typing Indicator
-
-                    addTypewriterEffect(botResponse, typingIndicator, () => {
-                        responseOptions.style.visibility = "visible"; // Zeige die Auswahloptionen
-                    });
-                }, 2000); // Simulate delay for bot response
-            }
-
-            // Initial User and Bot Messages
-            addUserMessage("Mich stört es, dass die Ausländer nur hierherkommen, um unseren Sozialstaat auszunutzen");
-
-            const typingIndicator = addTypingIndicator();
-            const loadingDotsInterval = addLoadingDots(typingIndicator);
-
             setTimeout(() => {
-                clearInterval(loadingDotsInterval); // Stop loading dots
-                typingIndicator.textContent = ""; // Clear Typing Indicator
+                addUserMessage("Ich möchte ein Film aus der Rubrik \"Komödien\" schauen");
 
-                const botMessageText = "Es gibt viele Missverständnisse rund um dieses Thema. Tatsächlich zeigen Studien, dass die meisten Menschen nicht nach Deutschland kommen, um Sozialleistungen zu beziehen. 😊 Die Hauptgründe für Migration sind oft wirtschaftlich, wie die Suche nach Arbeit oder besseren Bildungschancen, oder sie sind durch Flucht vor Krieg und Verfolgung bedingt. Außerdem leisten Migrantinnen und Migranten langfristig häufig einen wichtigen Beitrag, indem sie in das Sozialsystem einzahlen und in Bereichen arbeiten, in denen Fachkräfte gebraucht werden. Es gibt auch strenge rechtliche Vorgaben, wer überhaupt Anspruch auf Sozialleistungen hat.";
+                setTimeout(() => {
+                    const typingIndicatorContainer = addTypingIndicator();
+                    const typingIndicator = typingIndicatorContainer.querySelector('#typing-indicator');
+                    const loadingDotsInterval = addLoadingDots(typingIndicator);
 
-                addTypewriterEffect(botMessageText, typingIndicator, () => {
-                    responseOptions.style.visibility = "visible"; // Zeige die Auswahloptionen
-                });
-            }, 5000); // Initial delay for first bot message
+                    setTimeout(() => {
+                        clearInterval(loadingDotsInterval);
+                        typingIndicatorContainer.remove(); // Remove typing indicator
 
-            responseOptions.addEventListener("click", (event) => {
-                if (event.target.tagName === "BUTTON") {
-                    const userMessage = event.target.textContent;
-                    responseOptions.style.visibility = "hidden"; // Verstecke die Auswahloptionen
+                        const botMessageText = "Oh, ich liebe Komödien! \"Crazy, Stupid, Love\" ist so ein Film, der mir immer wieder empfohlen wird – die Mischung aus Romantik und Humor scheint einfach perfekt zu sein. Ein weiterer großartiger Tipp ist \"Hangover\", dieser Film soll vor Chaos und verrückten Momenten nur so sprühen. Wenn du nach etwas suchst, das dich wirklich zum Lachen bringt, könnte einer dieser Filme genau das Richtige für dich sein. Ich bin sicher, sie machen deinen Abend unterhaltsam! 😊";
 
-                    sendMessage(userMessage);
-                }
-            });
+                        addBotMessage(botMessageText);
+                    }, 2000); // Delay for bot message after typing
+                }, 2000); // Delay for typing indicator after user message
+            }, 2000); // Initial delay for first user message
         });
     </script>
 </head>
@@ -242,12 +195,6 @@
             <button class="close-button">×</button>
         </div>
         <div class="chat-messages"></div>
-        <div class="response-options">
-            <button>Was sind das für Studien?</button>
-            <button>Welche rechtlichen Vorgaben gibt es?</button>
-            <button>...</button>
-        </div>
     </div>
 </body>
 </html>
-
