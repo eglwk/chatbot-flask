@@ -1,9 +1,9 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatBot Max</title>
+    <title>ChatBot</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,7 +11,7 @@
             padding: 0;
             background-color: #f9f9f9;
         }
-
+ 
         .chat-container {
             width: 400px;
             height: 600px;
@@ -21,72 +21,83 @@
             display: flex;
             flex-direction: column;
             background: #fff;
-            overflow: hidden;
             position: relative;
         }
-
+ 
         .chat-header {
-            background-color: #666; 
+            background-color: #666;
             color: #fff;
             padding: 0 15px;
-            height: 60px; /* Höhe des Profilbildes */
+            height: 80px;
             display: flex;
             align-items: center;
             font-size: 18px;
             font-weight: bold;
             gap: 10px;
         }
-
+ 
         .chat-header img {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
         }
-
+ 
         .close-button {
             position: absolute;
-            top: 15px;
-            right: 15px;
+            top: 20px;
+            right: 20px;
             background-color: transparent;
             color: #fff;
             border: none;
-            font-size: 16px;
+            font-size: 32px;
             cursor: pointer;
         }
-
+ 
         .chat-messages {
             flex: 1;
-            overflow-y: auto;
+            overflow-y: scroll;
             padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 15px;
+            max-height: 100%;
+            scrollbar-width: thin;
+            scrollbar-color: #888 #f1f1f1;
         }
-
+ 
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+ 
+        .chat-messages::-webkit-scrollbar-thumb {
+            background-color: #888;
+            border-radius: 4px;
+        }
+ 
+        .chat-messages::-webkit-scrollbar-track {
+            background-color: #f1f1f1;
+            border-radius: 4px;
+        }
+ 
         .bot-message-container {
             display: flex;
             align-items: flex-start;
             gap: 10px;
         }
-
-        .bot-name {
-            font-weight: bold;
-            margin-right: 5px;
-            margin-top: 10px; 
-        }
-
+ 
         .bot-message {
             background-color: #f1f1f1;
             padding: 10px 15px;
             border-radius: 15px;
             max-width: 70%;
+            font-family: Arial, sans-serif;
         }
-
+ 
         .message {
             display: flex;
             align-items: flex-start;
         }
-
+ 
         .user-message {
             align-self: flex-end;
             background-color: #007bff;
@@ -95,106 +106,137 @@
             border-radius: 15px;
             max-width: 70%;
         }
+ 
+        .input-container {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-top: 1px solid #e0e0e0;
+            background-color: #fff;
+        }
+ 
+        .input-field {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 15px;
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+            resize: none;
+            min-height: 50px;
+            max-height: 200px;
+            overflow-y: hidden;
+            transition: height 0.2s ease;
+        }
+ 
+        .send-button {
+            background-color: transparent;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            margin-left: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            transition: fill 0.2s ease, background-color 0.2s ease;
+        }
+ 
+        .send-button svg {
+            fill: #333;
+            transition: fill 0.2s ease;
+        }
+ 
+        .send-button:hover {
+            background-color: #d1d1d1;
+        }
+ 
+        .send-button:hover svg {
+            fill: #444;
+        }
+ 
+        .send-button:active {
+            background-color: #b0b0b0;
+        }
+ 
+        .send-button:active svg {
+            fill: #007bff;
+        }
     </style>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const messagesContainer = document.querySelector('.chat-messages');
+            const inputField = document.querySelector('.input-field');
+            const sendButton = document.querySelector('.send-button');
+            const startText = "Ich möchte einen Film aus der Rubrik 'Fantasy' schauen. Gibt es hier Empfehlungen?";
 
-            function addBotMessage(text) {
-                const botMessageContainer = document.createElement('div');
-                botMessageContainer.classList.add('bot-message-container');
-                botMessageContainer.innerHTML = `
-                    <div class="bot-name">Max:</div>
-                    <div class="bot-message">
-                        ${text}
-                    </div>
-                `;
-                messagesContainer.appendChild(botMessageContainer);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-
+            inputField.value = startText;
+ 
             function addUserMessage(text) {
                 const userMessageContainer = document.createElement('div');
                 userMessageContainer.classList.add('message', 'user-message');
                 userMessageContainer.textContent = text;
                 messagesContainer.appendChild(userMessageContainer);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                scrollToBottom();
             }
-
-            function addTypingIndicator() {
-                const typingIndicatorContainer = document.createElement('div');
-                typingIndicatorContainer.classList.add('bot-message-container');
-                typingIndicatorContainer.innerHTML = `
-                    <div class="bot-message">
-                        <span id="typing-indicator">Max schreibt ...</span>
-                    </div>
-                `;
-                messagesContainer.appendChild(typingIndicatorContainer);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                return typingIndicatorContainer;
-            }
-
-            function addLoadingDots(typingIndicator) {
-                let dots = 0;
-                const interval = setInterval(() => {
-                    dots = (dots % 3) + 1;
-                    typingIndicator.textContent = `Max schreibt ${".".repeat(dots)}`;
-                }, 500);
-                return interval;
-            }
-
-            function addTypewriterEffect(text, callback) {
-                let index = 0;
+ 
+            function addBotMessage(text) {
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.classList.add('bot-message-container');
                 botMessageContainer.innerHTML = `
-                    <div class="bot-name">Max:</div>
-                    <div class="bot-message"><span id="bot-text"></span></div>
+                    <div class="bot-message">${text}</div>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
-                const botTextElement = botMessageContainer.querySelector('#bot-text');
-
-                const typeWriterEffect = setInterval(() => {
-                    if (index < text.length) {
-                        botTextElement.textContent += text[index];
-                        index++;
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight; // Scrollt nach unten
-                    } else {
-                        clearInterval(typeWriterEffect);
-                        if (callback) callback();
-                    }
-                }, 50); // Buchstabe für Buchstabe alle 50ms
+                scrollToBottom();
             }
-
-            setTimeout(() => {
-                addUserMessage("Ich möchte ein Film aus der Rubrik \"Komödien\" schauen");
-
-                setTimeout(() => {
-                    const typingIndicatorContainer = addTypingIndicator();
-                    const typingIndicator = typingIndicatorContainer.querySelector('#typing-indicator');
-                    const loadingDotsInterval = addLoadingDots(typingIndicator);
-
+ 
+            function scrollToBottom() {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+ 
+            sendButton.addEventListener('click', () => {
+                const userMessage = inputField.value;
+                if (userMessage.trim() !== "") {
+                    addUserMessage(userMessage);
+                    inputField.value = "";
+ 
                     setTimeout(() => {
-                        clearInterval(loadingDotsInterval);
-                        typingIndicatorContainer.remove(); // Remove typing indicator
-
-                        const botMessageText = "Oh, ich liebe Komödien! \"Crazy, Stupid, Love\" ist so ein Film, der mir immer wieder empfohlen wird – die Mischung aus Romantik und Humor scheint einfach perfekt zu sein. Ein weiterer großartiger Tipp ist \"Hangover\", dieser Film soll vor Chaos und verrückten Momenten nur so sprühen. Wenn du nach etwas suchst, das dich wirklich zum Lachen bringt, könnte einer dieser Filme genau das Richtige für dich sein. Ich bin sicher, sie machen deinen Abend unterhaltsam! 😊";
-
-                        addBotMessage(botMessageText);
-                    }, 2000); // Delay for bot message after typing
-                }, 2000); // Delay for typing indicator after user message
-            }, 2000); // Initial delay for first user message
+                        addBotMessage("Der Herr der Ringe: Die Gefährten und Pan’s Labyrinth sind empfohlene Filme im Fantasy-Genre. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt.");
+                    }, 1500);
+                }
+            });
+ 
+            inputField.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    sendButton.click();
+                }
+            });
+ 
+            inputField.addEventListener('input', () => {
+                inputField.style.height = 'auto';
+                inputField.style.height = inputField.scrollHeight + 'px';
+            });
         });
     </script>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <img src="/static/Avatar_male_07.jpg" alt="ChatBot Max">
-            ChatBot Max
+            <img src="KI.webp" alt="ChatBot">
+            ChatBot
             <button class="close-button">×</button>
         </div>
         <div class="chat-messages"></div>
+        <div class="input-container">
+            <textarea class="input-field"></textarea>
+            <button class="send-button">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M2 2L22 12L2 22V16L16 12L2 8V2Z" />
+                </svg>
+            </button>
+        </div>
     </div>
 </body>
 </html>
