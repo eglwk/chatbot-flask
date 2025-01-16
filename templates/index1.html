@@ -181,7 +181,7 @@
             inputField.value = startText;
             
             // Add a first bot message when the chat opens
-            const initialBotMessage = "Hallo! Ich bin Max.";
+            const initialBotMessage = "Hallo! Ich bin Anna.";
             addBotMessage(initialBotMessage);
  
             function addUserMessage(text) {
@@ -196,7 +196,7 @@
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.classList.add('bot-message-container');
                 botMessageContainer.innerHTML = `
-                    <div class="bot-name">Max:</div>
+                    <div class="bot-name">Anna:</div>
                     <div class="bot-message">${text}</div>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
@@ -236,8 +236,8 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <img src="/static/Avatar_male_02_02.jpg" alt="ChatBot Max">
-            ChatBot Max
+            <img src="/static/Avatar_fem_02_12.jpg" alt="ChatBot Anna">
+            ChatBot Anna
             <button class="close-button">×</button>
         </div>
         <div class="chat-messages"></div>
