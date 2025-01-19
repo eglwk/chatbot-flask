@@ -50,7 +50,7 @@
             color: #fff;
             border: none;
             font-size: 32px;
-            cursor: pointer;
+            cursor: pointer.
         }
 
         .chat-messages {
@@ -76,13 +76,13 @@
 
         .chat-messages::-webkit-scrollbar-track {
             background-color: #f1f1f1;
-            border-radius: 4px;
+            border-radius: 4px.
         }
 
         .bot-message-container {
             display: flex;
             align-items: flex-start;
-            gap: 10px;
+            gap: 10px.
         }
 
         .bot-message {
@@ -90,47 +90,12 @@
             padding: 10px 15px;
             border-radius: 15px;
             max-width: 70%;
-            font-family: Arial, sans-serif;
-        }
-
-        .loading-dots {
-            font-size: 32px;
-            font-weight: bold;
-            margin-left: 10px;
-            color: #007bff;
-            display: inline-block;
-        }
-
-        .loading-dots span {
-            animation: blink 1s infinite;
-        }
-
-        .loading-dots span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .loading-dots span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes blink {
-            0% {
-                opacity: 0;
-                transform: scale(1);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.2);
-            }
-            100% {
-                opacity: 0;
-                transform: scale(1);
-            }
+            font-family: Arial, sans-serif.
         }
 
         .message {
             display: flex;
-            align-items: flex-start;
+            align-items: flex-start.
         }
 
         .user-message {
@@ -139,7 +104,7 @@
             color: #fff;
             padding: 10px 15px;
             border-radius: 15px;
-            max-width: 70%;
+            max-width: 70%.
         }
 
         .input-container {
@@ -147,7 +112,7 @@
             align-items: center;
             padding: 10px;
             border-top: 1px solid #e0e0e0;
-            background-color: #fff;
+            background-color: #fff.
         }
 
         .input-field {
@@ -161,7 +126,7 @@
             min-height: 50px;
             max-height: 200px;
             overflow-y: hidden;
-            transition: height 0.2s ease;
+            transition: height 0.2s ease.
         }
 
         .send-button {
@@ -176,28 +141,28 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            transition: fill 0.2s ease, background-color 0.2s ease;
+            transition: fill 0.2s ease, background-color 0.2s ease.
         }
 
         .send-button svg {
             fill: #333;
-            transition: fill 0.2s ease;
+            transition: fill 0.2s ease.
         }
 
         .send-button:hover {
-            background-color: #d1d1d1;
+            background-color: #d1d1d1.
         }
 
         .send-button:hover svg {
-            fill: #444;
+            fill: #444.
         }
 
         .send-button:active {
-            background-color: #b0b0b0;
+            background-color: #b0b0b0.
         }
 
         .send-button:active svg {
-            fill: #007bff;
+            fill: #007bff.
         }
     </style>
     <script>
@@ -234,26 +199,11 @@
                     if (index < text.length) {
                         botMessageElement.innerHTML += text[index];
                         index++;
-                        setTimeout(typeMessage, 30);
+                        setTimeout(typeMessage, 30); // Buchstabe für Buchstabe
                     }
                 }
 
                 typeMessage();
-            }
-
-            function addLoadingDots() {
-                const loadingContainer = document.createElement('div');
-                loadingContainer.classList.add('bot-message-container');
-
-                const loadingDots = document.createElement('div');
-                loadingDots.classList.add('loading-dots');
-                loadingDots.innerHTML = '<span>.</span><span>.</span><span>.</span>';
-
-                loadingContainer.appendChild(loadingDots);
-                messagesContainer.appendChild(loadingContainer);
-                scrollToBottom();
-
-                return loadingContainer;
             }
 
             sendButton.addEventListener('click', () => {
@@ -262,12 +212,7 @@
                     addUserMessage(userMessage);
                     inputField.value = "";
 
-                    const loadingDots = addLoadingDots();
-
-                    setTimeout(() => {
-                        messagesContainer.removeChild(loadingDots);
-                        addBotMessage("'Ghostbusters' und 'Crazy, Stupid, Love' sind empfohlene Filme im Comedy-Genre. Beide bieten eine perfekte Mischung aus Humor und großartigen Geschichten. Diese Filme sind zeitlose Klassiker, die garantiert für gute Laune sorgen.");
-                    }, 3000); // Latenzzeit auf 3 Sekunden
+                    addBotMessage("'Die Ritter der Kokosnuss' und 'Pretty Woman' sind empfohlene Filme im Comedy-Genre. Beide bieten eine großartige Mischung aus Humor und zeitloser Unterhaltung.");
                 }
             });
 
@@ -307,5 +252,3 @@
     </div>
 </body>
 </html>
->
-
