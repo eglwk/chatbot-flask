@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html>  
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -202,7 +202,10 @@
                     addUserMessage(userMessage);
                     inputField.value = "";
 
-                    addBotMessage("'Jumanji: Willkommen im Dschungel' und 'Die Hochzeit meines besten Freundes' sind empfohlene Filme im Comedy-Genre😋. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt😀.");
+                    // Verzögerung der Antwort (1,5 Sekunden)
+                    setTimeout(() => {
+                        addBotMessage("'Jumanji: Willkommen im Dschungel' und 'Die Hochzeit meines besten Freundes' sind empfohlene Filme im Comedy-Genre😋. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt😀.");
+                    }, 1500);
                 }
             });
 
@@ -238,3 +241,4 @@
     </div>
 </body>
 </html>
+
