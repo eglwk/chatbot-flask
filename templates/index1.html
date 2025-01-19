@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -205,7 +205,7 @@
             const messagesContainer = document.querySelector('.chat-messages');
             const inputField = document.querySelector('.input-field');
             const sendButton = document.querySelector('.send-button');
-            const startText = "Ich möchte einen Film aus der Rubrik 'Fantasy' schauen. Gibt es hier Empfehlungen?";
+            const startText = "Ich möchte einen Film aus der Rubrik 'Comedy' schauen. Gibt es hier Empfehlungen?";
 
             inputField.value = startText;
 
@@ -266,8 +266,8 @@
 
                     setTimeout(() => {
                         messagesContainer.removeChild(loadingDots);
-                        addBotMessage("'Der Herr der Ringe: Die Gefährten' und 'Pan’s Labyrinth' sind empfohlene Filme im Fantasy-Genre. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt.");
-                    }, 7000); // Latenzzeit auf 7 Sekunden erhöht
+                        addBotMessage("'Ghostbusters' und 'Crazy, Stupid, Love' sind empfohlene Filme im Comedy-Genre. Beide bieten eine perfekte Mischung aus Humor und großartigen Geschichten. Diese Filme sind zeitlose Klassiker, die garantiert für gute Laune sorgen.");
+                    }, 3000); // Latenzzeit auf 3 Sekunden
                 }
             });
 
@@ -307,4 +307,5 @@
     </div>
 </body>
 </html>
+>
 
