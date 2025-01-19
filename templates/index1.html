@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatBot Anna</title>
+    <title>ChatBot</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -83,12 +83,6 @@
             display: flex;
             align-items: flex-start;
             gap: 10px;
-        }
- 
-        .bot-name {
-            font-weight: bold;
-            margin-right: 5px;
-            margin-top: 10px;
         }
  
         .bot-message {
@@ -176,13 +170,9 @@
             const messagesContainer = document.querySelector('.chat-messages');
             const inputField = document.querySelector('.input-field');
             const sendButton = document.querySelector('.send-button');
-            const startText = "Ich möchte einen Film aus der Rubrik \"Fantasy\" schauen. Gibt es hier Empfehlungen?";
- 
+            const startText = "Ich möchte einen Film aus der Rubrik 'Fantasy' schauen. Gibt es hier Empfehlungen?";
+
             inputField.value = startText;
-            
-            // Add a first bot message when the chat opens
-            const initialBotMessage = "Hallo! Ich bin Anna.";
-            addBotMessage(initialBotMessage);
  
             function addUserMessage(text) {
                 const userMessageContainer = document.createElement('div');
@@ -196,7 +186,6 @@
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.classList.add('bot-message-container');
                 botMessageContainer.innerHTML = `
-                    <div class="bot-name">Anna:</div>
                     <div class="bot-message">${text}</div>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
@@ -214,7 +203,7 @@
                     inputField.value = "";
  
                     setTimeout(() => {
-                        addBotMessage("'Der Herr der Ringe: Die Gefährten' und 'Pan’s Labyrinth' sind empfohlene Filme im Fantasy-Genre. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt.");
+                        addBotMessage("'Harry Potter und der Stein der Weisen' und 'Der Sternwanderer' sind empfohlene Filme im Fantasy-Genre. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt.");
                     }, 1500);
                 }
             });
@@ -229,15 +218,14 @@
                 inputField.style.height = 'auto';
                 inputField.style.height = inputField.scrollHeight + 'px';
             });
- 
         });
     </script>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <img src="/static/Avatar_fem_02_12.jpg" alt="ChatBot Anna">
-            ChatBot Anna
+            <img src="/static/KI_Bild.png" alt="ChatBot">
+            ChatBot
             <button class="close-button">×</button>
         </div>
         <div class="chat-messages"></div>
