@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,6 +11,7 @@
             padding: 0;
             background-color: #f9f9f9;
         }
+ 
         .chat-container {
             width: 400px;
             height: 600px;
@@ -22,6 +23,7 @@
             background: #fff;
             position: relative;
         }
+ 
         .chat-header {
             background-color: #666;
             color: #fff;
@@ -33,11 +35,13 @@
             font-weight: bold;
             gap: 10px;
         }
+ 
         .chat-header img {
             width: 75px;
             height: 75px;
             border-radius: 50%;
         }
+ 
         .close-button {
             position: absolute;
             top: 20px;
@@ -48,6 +52,7 @@
             font-size: 32px;
             cursor: pointer;
         }
+ 
         .chat-messages {
             flex: 1;
             overflow-y: scroll;
@@ -59,22 +64,27 @@
             scrollbar-width: thin;
             scrollbar-color: #888 #f1f1f1;
         }
+ 
         .chat-messages::-webkit-scrollbar {
             width: 8px;
         }
+ 
         .chat-messages::-webkit-scrollbar-thumb {
             background-color: #888;
             border-radius: 4px;
         }
+ 
         .chat-messages::-webkit-scrollbar-track {
             background-color: #f1f1f1;
             border-radius: 4px;
         }
+ 
         .bot-message-container {
             display: flex;
             align-items: flex-start;
             gap: 10px;
         }
+ 
         .bot-message {
             background-color: #f1f1f1;
             padding: 10px 15px;
@@ -82,10 +92,12 @@
             max-width: 70%;
             font-family: Arial, sans-serif;
         }
+ 
         .message {
             display: flex;
             align-items: flex-start;
         }
+ 
         .user-message {
             align-self: flex-end;
             background-color: #007bff;
@@ -94,6 +106,7 @@
             border-radius: 15px;
             max-width: 70%;
         }
+ 
         .input-container {
             display: flex;
             align-items: center;
@@ -101,6 +114,7 @@
             border-top: 1px solid #e0e0e0;
             background-color: #fff;
         }
+ 
         .input-field {
             width: 100%;
             padding: 8px;
@@ -114,6 +128,7 @@
             overflow-y: hidden;
             transition: height 0.2s ease;
         }
+ 
         .send-button {
             background-color: transparent;
             border: none;
@@ -128,19 +143,24 @@
             border-radius: 50%;
             transition: fill 0.2s ease, background-color 0.2s ease;
         }
+ 
         .send-button svg {
             fill: #333;
             transition: fill 0.2s ease;
         }
+ 
         .send-button:hover {
             background-color: #d1d1d1;
         }
+ 
         .send-button:hover svg {
             fill: #444;
         }
+ 
         .send-button:active {
             background-color: #b0b0b0;
         }
+ 
         .send-button:active svg {
             fill: #007bff;
         }
@@ -153,7 +173,7 @@
             const startText = "Ich möchte einen Film aus der Rubrik 'Comedy' schauen. Gibt es hier Empfehlungen?";
 
             inputField.value = startText;
-
+ 
             function addUserMessage(text) {
                 const userMessageContainer = document.createElement('div');
                 userMessageContainer.classList.add('message', 'user-message');
@@ -161,53 +181,39 @@
                 messagesContainer.appendChild(userMessageContainer);
                 scrollToBottom();
             }
-
+ 
             function addBotMessage(text) {
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.classList.add('bot-message-container');
-
-                const botMessageElement = document.createElement('div');
-                botMessageElement.classList.add('bot-message');
-                botMessageContainer.appendChild(botMessageElement);
+                botMessageContainer.innerHTML = `
+                    <div class="bot-message">${text}</div>
+                `;
                 messagesContainer.appendChild(botMessageContainer);
-
-                let index = 0;
-
-                function typeMessage() {
-                    if (index < text.length) {
-                        botMessageElement.textContent += text[index];
-                        index++;
-                        setTimeout(typeMessage, 30); // Buchstabe für Buchstabe mit 30ms Verzögerung
-                    }
-                }
-
-                typeMessage();
+                scrollToBottom();
             }
-
+ 
             function scrollToBottom() {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
-
+ 
             sendButton.addEventListener('click', () => {
                 const userMessage = inputField.value;
                 if (userMessage.trim() !== "") {
                     addUserMessage(userMessage);
                     inputField.value = "";
-
-                    // Verzögerung vor dem Tippen
+ 
                     setTimeout(() => {
-                        const botResponse = "'Die Ritter der Kokosnuss' und 'Pretty Woman' sind empfohlene Filme im Comedy-Genre. Beide bieten eine perfekte Mischung aus Humor und großartigen Geschichten. Diese Filme sind zeitlose Klassiker, die garantiert für gute Laune sorgen.";
-                        addBotMessage(botResponse);
-                    }, 1500); // 1,5 Sekunden Verzögerung
+                        addBotMessage("'Jumanji: Willkommen im Dschungel' und 'Die Hochzeit meines besten Freundes' sind empfohlene Filme im Comedy-Genre😋. Beide bieten eine perfekte Mischung aus Humor 😀 und großartigen Geschichten. Diese Filme sind zeitlose Klassiker, die garantiert für gute Laune sorgen 😂.");
+                    }, 1500);
                 }
             });
-
+ 
             inputField.addEventListener('keypress', (event) => {
                 if (event.key === 'Enter') {
                     sendButton.click();
                 }
             });
-
+ 
             inputField.addEventListener('input', () => {
                 inputField.style.height = 'auto';
                 inputField.style.height = inputField.scrollHeight + 'px';
