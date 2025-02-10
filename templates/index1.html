@@ -1,9 +1,9 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatBot</title>
+    <title>ChatBot Anna</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -83,6 +83,12 @@
             display: flex;
             align-items: flex-start;
             gap: 10px;
+        }
+ 
+        .bot-name {
+            font-weight: bold;
+            margin-right: 5px;
+            margin-top: 10px;
         }
  
         .bot-message {
@@ -170,9 +176,13 @@
             const messagesContainer = document.querySelector('.chat-messages');
             const inputField = document.querySelector('.input-field');
             const sendButton = document.querySelector('.send-button');
-            const startText = "Ich möchte einen Film aus der Rubrik 'Comedy' schauen. Gibt es hier Empfehlungen?";
-
+            const startText = "Ich möchte einen Film aus der Rubrik \"Action\" schauen. Gibt es hier Empfehlungen?";
+ 
             inputField.value = startText;
+            
+            // Add a first bot message when the chat opens
+            const initialBotMessage = "Hallo! Ich bin Anna.";
+            addBotMessage(initialBotMessage);
  
             function addUserMessage(text) {
                 const userMessageContainer = document.createElement('div');
@@ -186,6 +196,7 @@
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.classList.add('bot-message-container');
                 botMessageContainer.innerHTML = `
+                    <div class="bot-name">Anna:</div>
                     <div class="bot-message">${text}</div>
                 `;
                 messagesContainer.appendChild(botMessageContainer);
@@ -203,7 +214,7 @@
                     inputField.value = "";
  
                     setTimeout(() => {
-                        addBotMessage("'Jumanji: Willkommen im Dschungel' und 'Die Hochzeit meines besten Freundes' sind empfohlene Filme im Comedy-Genre😋. Beide bieten eine perfekte Mischung aus Humor 😀 und großartigen Geschichten. Diese Filme sind zeitlose Klassiker, die garantiert für gute Laune sorgen 😂.");
+                        addBotMessage("Oh, ich liebe Action-Filme! 'Mission Impossible - Fallout' ist einer meiner absoluten Favoriten – die epische Geschichte hat mich tief berührt. Auch 'Deadpool' von Tim Miller ist witzig und emotional. Beide Filme bieten eine spannende Story, die dich sicher begeistern wird!");
                     }, 1500);
                 }
             });
@@ -218,14 +229,15 @@
                 inputField.style.height = 'auto';
                 inputField.style.height = inputField.scrollHeight + 'px';
             });
+ 
         });
     </script>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <img src="/static/KI_Bild.png" alt="ChatBot">
-            ChatBot
+            <img src="/static/Avatar_fem_02_02.jpg" alt="ChatBot Anna">
+            ChatBot Anna
             <button class="close-button">×</button>
         </div>
         <div class="chat-messages"></div>
