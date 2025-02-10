@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatBot Anna</title>
+    <title>ChatBot</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,7 +11,6 @@
             padding: 0;
             background-color: #f9f9f9;
         }
- 
         .chat-container {
             width: 400px;
             height: 600px;
@@ -23,7 +22,6 @@
             background: #fff;
             position: relative;
         }
- 
         .chat-header {
             background-color: #666;
             color: #fff;
@@ -35,13 +33,11 @@
             font-weight: bold;
             gap: 10px;
         }
- 
         .chat-header img {
             width: 75px;
             height: 75px;
             border-radius: 50%;
         }
- 
         .close-button {
             position: absolute;
             top: 20px;
@@ -52,7 +48,6 @@
             font-size: 32px;
             cursor: pointer;
         }
- 
         .chat-messages {
             flex: 1;
             overflow-y: scroll;
@@ -64,33 +59,22 @@
             scrollbar-width: thin;
             scrollbar-color: #888 #f1f1f1;
         }
- 
         .chat-messages::-webkit-scrollbar {
             width: 8px;
         }
- 
         .chat-messages::-webkit-scrollbar-thumb {
             background-color: #888;
             border-radius: 4px;
         }
- 
         .chat-messages::-webkit-scrollbar-track {
             background-color: #f1f1f1;
             border-radius: 4px;
         }
- 
         .bot-message-container {
             display: flex;
             align-items: flex-start;
             gap: 10px;
         }
- 
-        .bot-name {
-            font-weight: bold;
-            margin-right: 5px;
-            margin-top: 10px;
-        }
- 
         .bot-message {
             background-color: #f1f1f1;
             padding: 10px 15px;
@@ -98,12 +82,10 @@
             max-width: 70%;
             font-family: Arial, sans-serif;
         }
- 
         .message {
             display: flex;
             align-items: flex-start;
         }
- 
         .user-message {
             align-self: flex-end;
             background-color: #007bff;
@@ -112,7 +94,6 @@
             border-radius: 15px;
             max-width: 70%;
         }
- 
         .input-container {
             display: flex;
             align-items: center;
@@ -120,7 +101,6 @@
             border-top: 1px solid #e0e0e0;
             background-color: #fff;
         }
- 
         .input-field {
             width: 100%;
             padding: 8px;
@@ -134,7 +114,6 @@
             overflow-y: hidden;
             transition: height 0.2s ease;
         }
- 
         .send-button {
             background-color: transparent;
             border: none;
@@ -149,24 +128,19 @@
             border-radius: 50%;
             transition: fill 0.2s ease, background-color 0.2s ease;
         }
- 
         .send-button svg {
             fill: #333;
             transition: fill 0.2s ease;
         }
- 
         .send-button:hover {
             background-color: #d1d1d1;
         }
- 
         .send-button:hover svg {
             fill: #444;
         }
- 
         .send-button:active {
             background-color: #b0b0b0;
         }
- 
         .send-button:active svg {
             fill: #007bff;
         }
@@ -176,14 +150,10 @@
             const messagesContainer = document.querySelector('.chat-messages');
             const inputField = document.querySelector('.input-field');
             const sendButton = document.querySelector('.send-button');
-            const startText = "Ich möchte einen Film aus der Rubrik \"Action\" schauen. Gibt es hier Empfehlungen?";
- 
+            const startText = "Ich möchte einen Film aus der Rubrik 'Comedy' schauen. Gibt es hier Empfehlungen?";
+
             inputField.value = startText;
-            
-            // Add a first bot message when the chat opens
-            const initialBotMessage = "Hallo! Ich bin Anna.";
-            addBotMessage(initialBotMessage);
- 
+
             function addUserMessage(text) {
                 const userMessageContainer = document.createElement('div');
                 userMessageContainer.classList.add('message', 'user-message');
@@ -191,53 +161,65 @@
                 messagesContainer.appendChild(userMessageContainer);
                 scrollToBottom();
             }
- 
+
             function addBotMessage(text) {
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.classList.add('bot-message-container');
-                botMessageContainer.innerHTML = `
-                    <div class="bot-name">Anna:</div>
-                    <div class="bot-message">${text}</div>
-                `;
+
+                const botMessageElement = document.createElement('div');
+                botMessageElement.classList.add('bot-message');
+                botMessageContainer.appendChild(botMessageElement);
                 messagesContainer.appendChild(botMessageContainer);
-                scrollToBottom();
+
+                let index = 0;
+
+                function typeMessage() {
+                    if (index < text.length) {
+                        botMessageElement.textContent += text[index];
+                        index++;
+                        setTimeout(typeMessage, 30); // Buchstabe für Buchstabe mit 30ms Verzögerung
+                    }
+                }
+
+                typeMessage();
             }
- 
+
             function scrollToBottom() {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
- 
+
             sendButton.addEventListener('click', () => {
                 const userMessage = inputField.value;
                 if (userMessage.trim() !== "") {
                     addUserMessage(userMessage);
                     inputField.value = "";
- 
+
+                    // Verzögerung vor dem Tippen
                     setTimeout(() => {
-                        addBotMessage("'The Avengers' und 'Casino Royale' sind empfohlene Filme im Action-Genre. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt.");
-                    }, 1500);
+                        const botResponse = "'Die Ritter der Kokosnuss' und 'Pretty Woman' sind empfohlene Filme im Comedy-Genre. Beide bieten eine perfekte Mischung aus Humor und großartigen Geschichten. Diese Filme sind zeitlose Klassiker, die garantiert für gute Laune sorgen.";
+                        addBotMessage(botResponse);
+                    }, 1500); // 1,5 Sekunden Verzögerung
                 }
             });
- 
+
             inputField.addEventListener('keypress', (event) => {
                 if (event.key === 'Enter') {
                     sendButton.click();
                 }
             });
- 
+
             inputField.addEventListener('input', () => {
                 inputField.style.height = 'auto';
                 inputField.style.height = inputField.scrollHeight + 'px';
             });
- 
         });
     </script>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <img src="/static/Avatar_fem_02_12.jpg" alt="ChatBot Anna">
-            ChatBot Anna
+            <img src="/static/KI_Bild.png" alt="ChatBot">
+            ChatBot
             <button class="close-button">×</button>
         </div>
         <div class="chat-messages"></div>
@@ -252,4 +234,5 @@
     </div>
 </body>
 </html>
+
 
