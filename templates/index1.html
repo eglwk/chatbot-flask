@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,7 +11,6 @@
             padding: 0;
             background-color: #f9f9f9;
         }
-
         .chat-container {
             width: 400px;
             height: 600px;
@@ -23,7 +22,6 @@
             background: #fff;
             position: relative;
         }
-
         .chat-header {
             background-color: #666;
             color: #fff;
@@ -35,13 +33,11 @@
             font-weight: bold;
             gap: 10px;
         }
-
         .chat-header img {
             width: 75px;
             height: 75px;
             border-radius: 50%;
         }
-
         .close-button {
             position: absolute;
             top: 20px;
@@ -52,7 +48,6 @@
             font-size: 32px;
             cursor: pointer;
         }
-
         .chat-messages {
             flex: 1;
             overflow-y: scroll;
@@ -64,27 +59,22 @@
             scrollbar-width: thin;
             scrollbar-color: #888 #f1f1f1;
         }
-
         .chat-messages::-webkit-scrollbar {
             width: 8px;
         }
-
         .chat-messages::-webkit-scrollbar-thumb {
             background-color: #888;
             border-radius: 4px;
         }
-
         .chat-messages::-webkit-scrollbar-track {
             background-color: #f1f1f1;
             border-radius: 4px;
         }
-
         .bot-message-container {
             display: flex;
             align-items: flex-start;
             gap: 10px;
         }
-
         .bot-message {
             background-color: #f1f1f1;
             padding: 10px 15px;
@@ -92,47 +82,10 @@
             max-width: 70%;
             font-family: Arial, sans-serif;
         }
-
-        .loading-dots {
-            font-size: 32px;
-            font-weight: bold;
-            margin-left: 10px;
-            color: #007bff;
-            display: inline-block;
-        }
-
-        .loading-dots span {
-            animation: blink 1s infinite;
-        }
-
-        .loading-dots span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .loading-dots span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes blink {
-            0% {
-                opacity: 0;
-                transform: scale(1);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.2);
-            }
-            100% {
-                opacity: 0;
-                transform: scale(1);
-            }
-        }
-
         .message {
             display: flex;
             align-items: flex-start;
         }
-
         .user-message {
             align-self: flex-end;
             background-color: #007bff;
@@ -141,7 +94,6 @@
             border-radius: 15px;
             max-width: 70%;
         }
-
         .input-container {
             display: flex;
             align-items: center;
@@ -149,7 +101,6 @@
             border-top: 1px solid #e0e0e0;
             background-color: #fff;
         }
-
         .input-field {
             width: 100%;
             padding: 8px;
@@ -163,7 +114,6 @@
             overflow-y: hidden;
             transition: height 0.2s ease;
         }
-
         .send-button {
             background-color: transparent;
             border: none;
@@ -178,24 +128,19 @@
             border-radius: 50%;
             transition: fill 0.2s ease, background-color 0.2s ease;
         }
-
         .send-button svg {
             fill: #333;
             transition: fill 0.2s ease;
         }
-
         .send-button:hover {
             background-color: #d1d1d1;
         }
-
         .send-button:hover svg {
             fill: #444;
         }
-
         .send-button:active {
             background-color: #b0b0b0;
         }
-
         .send-button:active svg {
             fill: #007bff;
         }
@@ -205,7 +150,7 @@
             const messagesContainer = document.querySelector('.chat-messages');
             const inputField = document.querySelector('.input-field');
             const sendButton = document.querySelector('.send-button');
-            const startText = "Ich möchte einen Film aus der Rubrik 'Fantasy' schauen. Gibt es hier Empfehlungen?";
+            const startText = "Ich möchte einen Film aus der Rubrik 'Comedy' schauen. Gibt es hier Empfehlungen?";
 
             inputField.value = startText;
 
@@ -224,36 +169,23 @@
                 const botMessageElement = document.createElement('div');
                 botMessageElement.classList.add('bot-message');
                 botMessageContainer.appendChild(botMessageElement);
-
                 messagesContainer.appendChild(botMessageContainer);
-                scrollToBottom();
 
                 let index = 0;
 
                 function typeMessage() {
                     if (index < text.length) {
-                        botMessageElement.innerHTML += text[index];
+                        botMessageElement.textContent += text[index];
                         index++;
-                        setTimeout(typeMessage, 30);
+                        setTimeout(typeMessage, 30); // Buchstabe für Buchstabe mit 30ms Verzögerung
                     }
                 }
 
                 typeMessage();
             }
 
-            function addLoadingDots() {
-                const loadingContainer = document.createElement('div');
-                loadingContainer.classList.add('bot-message-container');
-
-                const loadingDots = document.createElement('div');
-                loadingDots.classList.add('loading-dots');
-                loadingDots.innerHTML = '<span>.</span><span>.</span><span>.</span>';
-
-                loadingContainer.appendChild(loadingDots);
-                messagesContainer.appendChild(loadingContainer);
-                scrollToBottom();
-
-                return loadingContainer;
+            function scrollToBottom() {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
 
             sendButton.addEventListener('click', () => {
@@ -262,12 +194,11 @@
                     addUserMessage(userMessage);
                     inputField.value = "";
 
-                    const loadingDots = addLoadingDots();
-
+                    // Verzögerung vor dem Tippen
                     setTimeout(() => {
-                        messagesContainer.removeChild(loadingDots);
-                        addBotMessage("'Eragon - Das Vermächtnis der Drachenreiter' und 'Der goldene Kompass' sind empfohlene Filme im Fantasy-Genre. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt.");
-                    }, 7000); // Latenzzeit auf 7 Sekunden
+                        const botResponse = "'Die Ritter der Kokosnuss' und 'Pretty Woman' sind empfohlene Filme im Comedy-Genre. Beide bieten eine perfekte Mischung aus Humor und großartigen Geschichten. Diese Filme sind zeitlose Klassiker, die garantiert für gute Laune sorgen.";
+                        addBotMessage(botResponse);
+                    }, 1500); // 1,5 Sekunden Verzögerung
                 }
             });
 
@@ -281,10 +212,6 @@
                 inputField.style.height = 'auto';
                 inputField.style.height = inputField.scrollHeight + 'px';
             });
-
-            function scrollToBottom() {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
         });
     </script>
 </head>
@@ -307,5 +234,3 @@
     </div>
 </body>
 </html>
->
-
