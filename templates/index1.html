@@ -98,41 +98,6 @@
             max-width: 70%;
             font-family: Arial, sans-serif;
         }
-
-        .loading-dots {
-            font-size: 32px;
-            font-weight: bold;
-            margin-left: 10px;
-            color: #007bff;
-            display: inline-block;
-        }
-
-        .loading-dots span {
-            animation: blink 1s infinite;
-        }
-
-        .loading-dots span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .loading-dots span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes blink {
-            0% {
-                opacity: 0;
-                transform: scale(1);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.2);
-            }
-            100% {
-                opacity: 0;
-                transform: scale(1);
-            }
-        }
  
         .message {
             display: flex;
@@ -211,7 +176,7 @@
             const messagesContainer = document.querySelector('.chat-messages');
             const inputField = document.querySelector('.input-field');
             const sendButton = document.querySelector('.send-button');
-            const startText = "Ich möchte einen Film aus der Rubrik \"Thriller\" schauen. Gibt es hier Empfehlungen?";
+            const startText = "Ich möchte einen Film aus der Rubrik \"Action\" schauen. Gibt es hier Empfehlungen?";
  
             inputField.value = startText;
             
@@ -230,57 +195,27 @@
             function addBotMessage(text) {
                 const botMessageContainer = document.createElement('div');
                 botMessageContainer.classList.add('bot-message-container');
-                const botName = document.createElement('div');
-                botName.classList.add('bot-name');
-                botName.textContent = "Anna:";
-                const botMessageElement = document.createElement('div');
-                botMessageElement.classList.add('bot-message');
-                botMessageContainer.appendChild(botName);
-                botMessageContainer.appendChild(botMessageElement);
+                botMessageContainer.innerHTML = `
+                    <div class="bot-name">Anna:</div>
+                    <div class="bot-message">${text}</div>
+                `;
                 messagesContainer.appendChild(botMessageContainer);
                 scrollToBottom();
-
-                let index = 0;
-
-                function typeMessage() {
-                    if (index < text.length) {
-                        botMessageElement.innerHTML += text[index];
-                        index++;
-                        setTimeout(typeMessage, 30);
-                        }
-                    }
-
-                    typeMessage();
             }
-
-
-             function addLoadingDots() {
-                    const loadingContainer = document.createElement('div');
-                    loadingContainer.classList.add('bot-message-container');
-
-                    const loadingDots = document.createElement('div');
-                    loadingDots.classList.add('loading-dots');
-                    loadingDots.innerHTML = '<span>.</span><span>.</span><span>.</span>';
-
-                    loadingContainer.appendChild(loadingDots);
-                    messagesContainer.appendChild(loadingContainer);
-                    scrollToBottom();
-
-                    return loadingContainer;
-                }
+ 
+            function scrollToBottom() {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
  
             sendButton.addEventListener('click', () => {
                 const userMessage = inputField.value;
                 if (userMessage.trim() !== "") {
                     addUserMessage(userMessage);
                     inputField.value = "";
-
-                    const loadingDots = addLoadingDots();
  
                     setTimeout(() => {
-                        messagesContainer.removeChild(loadingDots);
-                        addBotMessage("Oh, ich liebe Thriller😋! 'Fight Club' ist einer meiner absoluten Favoriten – die epische Geschichte hat mich tief berührt. Auch 'No Country for Old Men' von Ethan Coan ist witzig und emotional. Beide Filme bieten eine spannende Story, die dich sicher begeistern wird😀!");
-                    }, 3000);  //Latenzzeit auf 3 Sekunden
+                        addBotMessage("'Spider-Man: No Way Home' und 'Terminator' sind empfohlene Filme im Action-Genre. Beide bieten spannende Geschichten, beeindruckende visuelle Effekte und faszinierende Welten. Diese Filme gehören zu den Klassikern und sind bei Fans sehr beliebt.");
+                    }, 1500);
                 }
             });
  
@@ -294,17 +229,14 @@
                 inputField.style.height = 'auto';
                 inputField.style.height = inputField.scrollHeight + 'px';
             });
-            
-            function scrollToBottom() {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
+ 
         });
     </script>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <img src="/static/Avatar_fem_02_12.jpg" alt="ChatBot Anna">
+            <img src="/static/avatar_fem_neu.png" alt="ChatBot Anna">
             ChatBot Anna
             <button class="close-button">×</button>
         </div>
