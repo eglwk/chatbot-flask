@@ -1,4 +1,4 @@
 Flask
-mistralai
+requests
 python-dotenv
 gunicorn
