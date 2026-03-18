@@ -43,17 +43,19 @@ def get_chat_path():
 
 
 def ensure_dir_exists():
-    """
-    Legt participant-Ordner an, falls noch nicht vorhanden.
-    """
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/dir/"
     data = {
         "operation": "mkdir",
         "path": get_chat_dir()
     }
-    response = requests.post(url, headers=seafile_headers(), data=data, timeout=30)
 
-    # Ordner existiert schon -> meist trotzdem okay
+    response = requests.post(
+        url,
+        headers=seafile_headers(),
+        data=data,
+        timeout=30
+    )
+
     if response.status_code not in (200, 201, 400):
         raise Exception(f"Seafile mkdir fehlgeschlagen: {response.status_code} {response.text}")
 
@@ -61,29 +63,37 @@ def ensure_dir_exists():
 def get_upload_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/upload-link/"
     response = requests.get(url, headers=seafile_headers(), timeout=30)
+
     if response.status_code != 200:
         raise Exception(f"Upload-Link fehlgeschlagen: {response.status_code} {response.text}")
+
     return response.text.strip('"')
 
 
 def get_update_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/update-link/"
     response = requests.get(url, headers=seafile_headers(), timeout=30)
+
     if response.status_code != 200:
         raise Exception(f"Update-Link fehlgeschlagen: {response.status_code} {response.text}")
+
     return response.text.strip('"')
 
 
 def get_download_link():
-    """
-    Holt Download-Link für vorhandene Datei.
-    """
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/file/"
     params = {"p": get_chat_path()}
-    response = requests.get(url, headers=seafile_headers(), params=params, timeout=30)
+
+    response = requests.get(
+        url,
+        headers=seafile_headers(),
+        params=params,
+        timeout=30
+    )
 
     if response.status_code == 404:
         return None
+
     if response.status_code != 200:
         raise Exception(f"Download-Link fehlgeschlagen: {response.status_code} {response.text}")
 
@@ -91,23 +101,21 @@ def get_download_link():
 
 
 def load_chat_history_from_seafile():
-    """
-    Lädt vorhandene JSON-Datei aus Seafile.
-    Wenn sie noch nicht existiert, wird [] zurückgegeben.
-    """
     try:
         download_link = get_download_link()
         if not download_link:
             return []
 
-        file_response = requests.get(download_link, headers=seafile_headers(), timeout=30)
+        file_response = requests.get(download_link, timeout=30)
 
         if file_response.status_code != 200:
             return []
 
         data = file_response.json()
+
         if isinstance(data, list):
             return data
+
         return []
     except Exception:
         return []
@@ -166,6 +174,7 @@ def save_chat_history_to_seafile(chat_history):
     file_bytes = json.dumps(chat_history, ensure_ascii=False, indent=2).encode("utf-8")
 
     existing = load_chat_history_from_seafile()
+
     if existing:
         update_file_in_seafile(file_bytes)
     else:
@@ -185,7 +194,7 @@ def ask_mistral(chat_history):
         }
     ]
 
-    for msg in chat_history:
+    for msg in chat_history[-10:]:
         if isinstance(msg, dict) and "role" in msg and "content" in msg:
             messages.append({
                 "role": msg["role"],
@@ -202,13 +211,31 @@ def ask_mistral(chat_history):
         "messages": messages
     }
 
-    response = requests.post(MISTRAL_API_URL, headers=headers, json=data, timeout=60)
+    last_error = None
 
-    if response.status_code != 200:
-        raise Exception(f"Mistral-Fehler: {response.status_code} {response.text}")
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                MISTRAL_API_URL,
+                headers=headers,
+                json=data,
+                timeout=60
+            )
 
-    result = response.json()
-    return result["choices"][0]["message"]["content"]
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+
+            if response.status_code in [502, 503, 504]:
+                last_error = f"HTTP {response.status_code}: {response.text}"
+                continue
+
+            raise Exception(f"HTTP {response.status_code}: {response.text}")
+
+        except Exception as e:
+            last_error = str(e)
+
+    raise Exception(f"Mistral nicht erreichbar: {last_error}")
 
 
 @app.route("/")
@@ -254,6 +281,31 @@ def send():
     except Exception as e:
         print("Fehler:", repr(e))
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/test_seafile")
+def test_seafile():
+    headers = {
+        "Authorization": f"Token {SEAFILE_TOKEN}",
+        "Accept": "application/json"
+    }
+
+    url = f"{SEAFILE_BASE_URL}/api2/repos/"
+    response = requests.get(url, headers=headers, timeout=30)
+
+    safe_prefix = ""
+    if SEAFILE_TOKEN:
+        safe_prefix = SEAFILE_TOKEN[:8]
+
+    return jsonify({
+        "status_code": response.status_code,
+        "response_text": response.text,
+        "token_exists": bool(SEAFILE_TOKEN),
+        "token_prefix": safe_prefix,
+        "token_length": len(SEAFILE_TOKEN) if SEAFILE_TOKEN else 0,
+        "base_url": SEAFILE_BASE_URL,
+        "repo_id": SEAFILE_REPO_ID
+    })
 
 
 if __name__ == "__main__":
