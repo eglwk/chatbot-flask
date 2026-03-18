@@ -1,12 +1,14 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 from dotenv import load_dotenv
 import requests
 import os
 import json
+import uuid
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bitte-spaeter-sicher-ersetzen")
 
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
 MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "ministral-3b-2512")
@@ -18,7 +20,6 @@ MISTRAL_API_URL = os.environ.get(
 SEAFILE_BASE_URL = os.environ.get("SEAFILE_BASE_URL")
 SEAFILE_TOKEN = os.environ.get("SEAFILE_TOKEN")
 SEAFILE_REPO_ID = os.environ.get("SEAFILE_REPO_ID")
-SEAFILE_PARENT_DIR = os.environ.get("SEAFILE_PARENT_DIR", "/")
 PARTICIPANT_ID = os.environ.get("PARTICIPANT_ID", "vp01")
 STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 
@@ -30,34 +31,18 @@ def seafile_headers():
     }
 
 
+def ensure_chat_session():
+    if "chat_session_id" not in session:
+        session["chat_session_id"] = str(uuid.uuid4())
+
+
 def get_chat_filename():
-    return f"participant_{PARTICIPANT_ID}_day{STUDY_DAY}.json"
-
-
-def get_chat_dir():
-    return "/"
+    ensure_chat_session()
+    return f"participant_{PARTICIPANT_ID}_day{STUDY_DAY}_{session['chat_session_id']}.json"
 
 
 def get_chat_path():
     return f"/{get_chat_filename()}"
-
-
-def ensure_dir_exists():
-    url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/dir/"
-    data = {
-        "operation": "mkdir",
-        "path": get_chat_dir()
-    }
-
-    response = requests.post(
-        url,
-        headers=seafile_headers(),
-        data=data,
-        timeout=30
-    )
-
-    if response.status_code not in (200, 201, 400):
-        raise Exception(f"Seafile mkdir fehlgeschlagen: {response.status_code} {response.text}")
 
 
 def get_upload_link():
@@ -129,7 +114,7 @@ def upload_new_file_to_seafile(file_bytes):
     }
 
     data = {
-        "parent_dir": get_chat_dir(),
+        "parent_dir": "/",
         "replace": "1"
     }
 
@@ -209,45 +194,31 @@ def ask_mistral(chat_history):
         "messages": messages
     }
 
-    last_error = None
+    response = requests.post(
+        MISTRAL_API_URL,
+        headers=headers,
+        json=data,
+        timeout=60
+    )
 
-    for attempt in range(3):
-        try:
-            response = requests.post(
-                MISTRAL_API_URL,
-                headers=headers,
-                json=data,
-                timeout=60
-            )
+    if response.status_code != 200:
+        raise Exception(f"Mistral-Fehler: {response.status_code} {response.text}")
 
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-
-            if response.status_code in [502, 503, 504]:
-                last_error = f"HTTP {response.status_code}: {response.text}"
-                continue
-
-            raise Exception(f"HTTP {response.status_code}: {response.text}")
-
-        except Exception as e:
-            last_error = str(e)
-
-    raise Exception(f"Mistral nicht erreichbar: {last_error}")
+    result = response.json()
+    return result["choices"][0]["message"]["content"]
 
 
 @app.route("/")
 def home():
+    # Bei jedem neuen Öffnen bewusst neue Chat-Session erzeugen
+    session["chat_session_id"] = str(uuid.uuid4())
     return render_template("index1.html")
 
 
 @app.route("/load_chat", methods=["GET"])
 def load_chat():
-    try:
-        chat_history = load_chat_history_from_seafile()
-        return jsonify({"chat_history": chat_history})
-    except Exception as e:
-        return jsonify({"error": f"Fehler beim Laden: {str(e)}"}), 500
+    # Immer leer starten
+    return jsonify({"chat_history": []})
 
 
 @app.route("/send", methods=["POST"])
@@ -291,18 +262,13 @@ def test_seafile():
     url = f"{SEAFILE_BASE_URL}/api2/repos/"
     response = requests.get(url, headers=headers, timeout=30)
 
-    safe_prefix = ""
-    if SEAFILE_TOKEN:
-        safe_prefix = SEAFILE_TOKEN[:8]
-
     return jsonify({
         "status_code": response.status_code,
         "response_text": response.text,
         "token_exists": bool(SEAFILE_TOKEN),
-        "token_prefix": safe_prefix,
-        "token_length": len(SEAFILE_TOKEN) if SEAFILE_TOKEN else 0,
         "base_url": SEAFILE_BASE_URL,
-        "repo_id": SEAFILE_REPO_ID
+        "repo_id": SEAFILE_REPO_ID,
+        "current_chat_file": get_chat_filename()
     })
 
 
