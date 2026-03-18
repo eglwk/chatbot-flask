@@ -31,15 +31,15 @@ def seafile_headers():
 
 
 def get_chat_filename():
-    return f"day{STUDY_DAY}.json"
+    return f"participant_{PARTICIPANT_ID}_day{STUDY_DAY}.json"
 
 
 def get_chat_dir():
-    return f"/participant_{PARTICIPANT_ID}"
+    return "/"
 
 
 def get_chat_path():
-    return f"{get_chat_dir()}/{get_chat_filename()}"
+    return f"/{get_chat_filename()}"
 
 
 def ensure_dir_exists():
@@ -169,8 +169,6 @@ def update_file_in_seafile(file_bytes):
 
 
 def save_chat_history_to_seafile(chat_history):
-    ensure_dir_exists()
-
     file_bytes = json.dumps(chat_history, ensure_ascii=False, indent=2).encode("utf-8")
 
     existing = load_chat_history_from_seafile()
