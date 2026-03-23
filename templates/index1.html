@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChatBot Rose</title>
+  <title>Chatti</title>
 
   <style>
     body {
@@ -15,7 +15,7 @@
 
     .chat-container {
       width: 400px;
-      height: 600px;
+      height: 650px;
       margin: 50px auto;
       border: 1px solid #ddd;
       border-radius: 10px;
@@ -29,14 +29,13 @@
     .chat-header {
       background-color: #666;
       color: #fff;
-      padding: 0 15px;
-      height: 60px;
+      padding: 10px 15px;
+      min-height: 70px;
       display: flex;
       align-items: center;
-      font-size: 18px;
-      font-weight: bold;
       gap: 10px;
       flex-shrink: 0;
+      position: relative;
     }
 
     .chat-header img {
@@ -46,15 +45,39 @@
       object-fit: cover;
     }
 
-    .close-button {
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+      max-width: 240px;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      opacity: 0.95;
+      margin-top: 2px;
+    }
+
+    .logout-button {
       position: absolute;
-      top: 15px;
-      right: 15px;
+      top: 14px;
+      right: 12px;
       background-color: transparent;
       color: #fff;
-      border: none;
-      font-size: 16px;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
       cursor: pointer;
+    }
+
+    .logout-button:hover {
+      background-color: rgba(255,255,255,0.12);
     }
 
     .chat-messages {
@@ -77,7 +100,7 @@
     .bot-name {
       font-weight: bold;
       margin-top: 10px;
-      min-width: 40px;
+      min-width: 50px;
     }
 
     .bot-message {
@@ -92,10 +115,10 @@
     .message {
       display: flex;
       align-items: flex-start;
+      justify-content: flex-end;
     }
 
     .user-message {
-      align-self: flex-end;
       background-color: #007bff;
       color: #fff;
       padding: 10px 15px;
@@ -164,165 +187,183 @@
   </style>
 
   <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const messagesContainer = document.querySelector(".chat-messages");
-  const inputField = document.querySelector(".input-field");
-  const sendButton = document.querySelector(".send-button");
+    document.addEventListener("DOMContentLoaded", () => {
+      const messagesContainer = document.querySelector(".chat-messages");
+      const inputField = document.querySelector(".input-field");
+      const sendButton = document.querySelector(".send-button");
 
-  let isSending = false;
-  let typingIndicator = null;
+      let isSending = false;
+      let typingIndicator = null;
 
-  function scrollToBottom() {
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  function addUserMessage(text) {
-    const el = document.createElement("div");
-    el.classList.add("message", "user-message");
-    el.textContent = text;
-    messagesContainer.appendChild(el);
-    scrollToBottom();
-  }
-
-  function addBotMessage(text) {
-    const el = document.createElement("div");
-    el.classList.add("bot-message-container");
-
-    el.innerHTML = `
-      <div class="bot-name">Chatti:</div>
-      <div class="bot-message">${escapeHtml(text)}</div>
-    `;
-
-    messagesContainer.appendChild(el);
-    scrollToBottom();
-  }
-
-  function showTypingIndicator() {
-    removeTypingIndicator();
-
-    typingIndicator = document.createElement("div");
-    typingIndicator.classList.add("bot-message-container");
-
-    typingIndicator.innerHTML = `
-      <div class="bot-name">Chatti:</div>
-      <div class="bot-message typing-message">schreibt ...</div>
-    `;
-
-    messagesContainer.appendChild(typingIndicator);
-    scrollToBottom();
-  }
-
-  function removeTypingIndicator() {
-    if (typingIndicator) {
-      typingIndicator.remove();
-      typingIndicator = null;
-    }
-  }
-
-  async function loadChat() {
-    try {
-      const response = await fetch("/load_chat");
-      const data = await response.json();
-
-      messagesContainer.innerHTML = "";
-
-      if (data.chat_history && data.chat_history.length > 0) {
-        data.chat_history.forEach(msg => {
-          if (msg.role === "user") {
-            addUserMessage(msg.content);
-          } else if (msg.role === "assistant") {
-            addBotMessage(msg.content);
-          }
-        });
-      } else {
-        addBotMessage("Hallo! Schön, dass du da bist. Womit kann ich dir helfen?");
+      function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
       }
 
-    } catch (error) {
-      console.error(error);
-      addBotMessage("Chat konnte nicht geladen werden.");
-    }
-  }
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
 
-  async function sendMessage() {
-    const userMessage = inputField.value.trim();
+      function addUserMessage(text) {
+        const wrapper = document.createElement("div");
+        wrapper.classList.add("message");
 
-    if (userMessage === "" || isSending) return;
+        const el = document.createElement("div");
+        el.classList.add("user-message");
+        el.textContent = text;
 
-    isSending = true;
-    sendButton.disabled = true;
-    inputField.disabled = true;
+        wrapper.appendChild(el);
+        messagesContainer.appendChild(wrapper);
+        scrollToBottom();
+      }
 
-    addUserMessage(userMessage);
-    inputField.value = "";
-    inputField.style.height = "auto";
+      function addBotMessage(text) {
+        const el = document.createElement("div");
+        el.classList.add("bot-message-container");
 
-    showTypingIndicator();
+        el.innerHTML = `
+          <div class="bot-name">Chatti:</div>
+          <div class="bot-message">${escapeHtml(text)}</div>
+        `;
 
-    try {
-      const response = await fetch("/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: userMessage
-        })
+        messagesContainer.appendChild(el);
+        scrollToBottom();
+      }
+
+      function showTypingIndicator() {
+        removeTypingIndicator();
+
+        typingIndicator = document.createElement("div");
+        typingIndicator.classList.add("bot-message-container");
+
+        typingIndicator.innerHTML = `
+          <div class="bot-name">Chatti:</div>
+          <div class="bot-message typing-message">schreibt ...</div>
+        `;
+
+        messagesContainer.appendChild(typingIndicator);
+        scrollToBottom();
+      }
+
+      function removeTypingIndicator() {
+        if (typingIndicator) {
+          typingIndicator.remove();
+          typingIndicator = null;
+        }
+      }
+
+      async function loadChat() {
+        try {
+          const response = await fetch("/load_chat");
+          const data = await response.json();
+
+          messagesContainer.innerHTML = "";
+
+          if (!response.ok) {
+            addBotMessage(data.error || "Chat konnte nicht geladen werden.");
+            return;
+          }
+
+          if (data.chat_history && data.chat_history.length > 0) {
+            data.chat_history.forEach(msg => {
+              if (msg.role === "user") {
+                addUserMessage(msg.content);
+              } else if (msg.role === "assistant") {
+                addBotMessage(msg.content);
+              }
+            });
+          } else {
+            addBotMessage("Hallo! Schön, dass du da bist. Womit kann ich dir helfen?");
+          }
+
+        } catch (error) {
+          console.error(error);
+          addBotMessage("Chat konnte nicht geladen werden.");
+        }
+      }
+
+      async function sendMessage() {
+        const userMessage = inputField.value.trim();
+
+        if (userMessage === "" || isSending) return;
+
+        isSending = true;
+        sendButton.disabled = true;
+        inputField.disabled = true;
+
+        addUserMessage(userMessage);
+        inputField.value = "";
+        inputField.style.height = "auto";
+
+        showTypingIndicator();
+
+        try {
+          const response = await fetch("/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              message: userMessage
+            })
+          });
+
+          const data = await response.json();
+          removeTypingIndicator();
+
+          if (!response.ok) {
+            addBotMessage(data.error || "Serverfehler.");
+          } else {
+            addBotMessage(data.reply);
+          }
+
+        } catch (error) {
+          removeTypingIndicator();
+          addBotMessage("Verbindung fehlgeschlagen.");
+          console.error(error);
+        } finally {
+          isSending = false;
+          sendButton.disabled = false;
+          inputField.disabled = false;
+          inputField.focus();
+        }
+      }
+
+      sendButton.addEventListener("click", sendMessage);
+
+      inputField.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
       });
 
-      const data = await response.json();
-      removeTypingIndicator();
+      inputField.addEventListener("input", () => {
+        inputField.style.height = "auto";
+        inputField.style.height = inputField.scrollHeight + "px";
+      });
 
-      if (!response.ok) {
-        addBotMessage(data.error || "Serverfehler.");
-      } else {
-        addBotMessage(data.reply);
-      }
-
-    } catch (error) {
-      removeTypingIndicator();
-      addBotMessage("Verbindung fehlgeschlagen.");
-      console.error(error);
-    } finally {
-      isSending = false;
-      sendButton.disabled = false;
-      inputField.disabled = false;
-      inputField.focus();
-    }
-  }
-
-  sendButton.addEventListener("click", sendMessage);
-
-  inputField.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
-    }
-  });
-
-  inputField.addEventListener("input", () => {
-    inputField.style.height = "auto";
-    inputField.style.height = inputField.scrollHeight + "px";
-  });
-
-  // Beim Start Chat laden
-  loadChat();
-});
-</script>
+      loadChat();
+    });
+  </script>
 </head>
 
 <body>
   <div class="chat-container">
     <div class="chat-header">
-    <img src="/static/chattiHFI.png" alt="Chatti">      
-    Chatti
-      <button class="close-button" type="button" onclick="window.location.reload()">×</button>
+      <img src="/static/chattiHFI.png" alt="Chatti">
+
+      <div class="header-text">
+        <div class="header-title">Chatti</div>
+        <div class="header-subtitle">
+          Eingeloggt als: {{ username }} | Teilnehmer-ID: {{ participant_id }}
+        </div>
+      </div>
+
+      <button class="logout-button" type="button" onclick="window.location.href='/logout'">
+        Logout
+      </button>
     </div>
 
     <div class="chat-messages"></div>
