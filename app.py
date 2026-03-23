@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 import requests
 import os
 import json
-import uuid
 
 load_dotenv()
 
@@ -58,15 +57,9 @@ def get_participant_id():
     return USER_PARTICIPANT_IDS.get(username, "unknown")
 
 
-def ensure_chat_session():
-    if "chat_session_id" not in session:
-        session["chat_session_id"] = str(uuid.uuid4())
-
-
 def get_chat_filename():
-    ensure_chat_session()
     participant_id = get_participant_id()
-    return f"participant_{participant_id}_day{STUDY_DAY}_{session['chat_session_id']}.json"
+    return f"participant_{participant_id}_day{STUDY_DAY}.json"
 
 
 def get_chat_path():
@@ -183,6 +176,7 @@ def update_file_in_seafile(file_bytes):
 
 def save_chat_history_to_seafile(chat_history):
     file_bytes = json.dumps(chat_history, ensure_ascii=False, indent=2).encode("utf-8")
+
     existing = load_chat_history_from_seafile()
 
     if existing:
@@ -196,7 +190,7 @@ def ask_mistral(chat_history):
         {
             "role": "system",
             "content": (
-                "Du bist ChatBot Max, ein freundlicher, zugewandter Chatbot. "
+                "Du bist Chatti, ein freundlicher, zugewandter Chatbot. "
                 "Antworte klar, warm und nicht zu lang. "
                 "Wenn die Person etwas Persönliches schreibt, reagiere empathisch, aber nicht übertrieben. "
                 "Schreibe auf Deutsch."
@@ -246,7 +240,6 @@ def login():
 
         if username in USERS and USERS[username] == password:
             session["username"] = username
-            session["chat_session_id"] = str(uuid.uuid4())
             return redirect(url_for("home"))
 
         return render_template("login.html", error="Login fehlgeschlagen. Bitte Benutzername und Passwort prüfen.")
@@ -265,9 +258,6 @@ def home():
     if not require_login():
         return redirect(url_for("login"))
 
-    # Bei jedem neuen Öffnen des Chats neue Session-Datei
-    session["chat_session_id"] = str(uuid.uuid4())
-
     return render_template(
         "index1.html",
         username=session["username"],
@@ -280,8 +270,11 @@ def load_chat():
     if not require_login():
         return jsonify({"error": "Nicht eingeloggt"}), 401
 
-    # Immer leer starten
-    return jsonify({"chat_history": []})
+    try:
+        chat_history = load_chat_history_from_seafile()
+        return jsonify({"chat_history": chat_history})
+    except Exception as e:
+        return jsonify({"error": f"Fehler beim Laden: {str(e)}"}), 500
 
 
 @app.route("/send", methods=["POST"])
