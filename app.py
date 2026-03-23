@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from dotenv import load_dotenv
 import requests
 import os
@@ -10,6 +10,20 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bitte-spaeter-sicher-ersetzen")
 
+# -----------------------------
+# Login-Daten
+# -----------------------------
+USERS = {
+    "test": "12345"
+}
+
+USER_PARTICIPANT_IDS = {
+    "test": "vp1"
+}
+
+# -----------------------------
+# API / externe Dienste
+# -----------------------------
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
 MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "ministral-3b-2512")
 MISTRAL_API_URL = os.environ.get(
@@ -20,15 +34,28 @@ MISTRAL_API_URL = os.environ.get(
 SEAFILE_BASE_URL = os.environ.get("SEAFILE_BASE_URL")
 SEAFILE_TOKEN = os.environ.get("SEAFILE_TOKEN")
 SEAFILE_REPO_ID = os.environ.get("SEAFILE_REPO_ID")
-PARTICIPANT_ID = os.environ.get("PARTICIPANT_ID", "vp01")
 STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 
 
+# -----------------------------
+# Hilfsfunktionen
+# -----------------------------
 def seafile_headers():
     return {
         "Authorization": f"Token {SEAFILE_TOKEN}",
         "Accept": "application/json"
     }
+
+
+def require_login():
+    if "username" not in session:
+        return False
+    return True
+
+
+def get_participant_id():
+    username = session.get("username")
+    return USER_PARTICIPANT_IDS.get(username, "unknown")
 
 
 def ensure_chat_session():
@@ -38,7 +65,8 @@ def ensure_chat_session():
 
 def get_chat_filename():
     ensure_chat_session()
-    return f"participant_{PARTICIPANT_ID}_day{STUDY_DAY}_{session['chat_session_id']}.json"
+    participant_id = get_participant_id()
+    return f"participant_{participant_id}_day{STUDY_DAY}_{session['chat_session_id']}.json"
 
 
 def get_chat_path():
@@ -155,7 +183,6 @@ def update_file_in_seafile(file_bytes):
 
 def save_chat_history_to_seafile(chat_history):
     file_bytes = json.dumps(chat_history, ensure_ascii=False, indent=2).encode("utf-8")
-
     existing = load_chat_history_from_seafile()
 
     if existing:
@@ -208,21 +235,60 @@ def ask_mistral(chat_history):
     return result["choices"][0]["message"]["content"]
 
 
+# -----------------------------
+# Routen
+# -----------------------------
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+
+        if username in USERS and USERS[username] == password:
+            session["username"] = username
+            session["chat_session_id"] = str(uuid.uuid4())
+            return redirect(url_for("home"))
+
+        return render_template("login.html", error="Login fehlgeschlagen. Bitte Benutzername und Passwort prüfen.")
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/")
 def home():
-    # Bei jedem neuen Öffnen bewusst neue Chat-Session erzeugen
+    if not require_login():
+        return redirect(url_for("login"))
+
+    # Bei jedem neuen Öffnen des Chats neue Session-Datei
     session["chat_session_id"] = str(uuid.uuid4())
-    return render_template("index1.html")
+
+    return render_template(
+        "index1.html",
+        username=session["username"],
+        participant_id=get_participant_id()
+    )
 
 
 @app.route("/load_chat", methods=["GET"])
 def load_chat():
+    if not require_login():
+        return jsonify({"error": "Nicht eingeloggt"}), 401
+
     # Immer leer starten
     return jsonify({"chat_history": []})
 
 
 @app.route("/send", methods=["POST"])
 def send():
+    if not require_login():
+        return jsonify({"error": "Nicht eingeloggt"}), 401
+
     data = request.get_json()
     user_message = data.get("message", "").strip()
 
@@ -254,6 +320,9 @@ def send():
 
 @app.route("/test_seafile")
 def test_seafile():
+    if not require_login():
+        return jsonify({"error": "Nicht eingeloggt"}), 401
+
     headers = {
         "Authorization": f"Token {SEAFILE_TOKEN}",
         "Accept": "application/json"
@@ -262,12 +331,20 @@ def test_seafile():
     url = f"{SEAFILE_BASE_URL}/api2/repos/"
     response = requests.get(url, headers=headers, timeout=30)
 
+    safe_prefix = ""
+    if SEAFILE_TOKEN:
+        safe_prefix = SEAFILE_TOKEN[:8]
+
     return jsonify({
         "status_code": response.status_code,
         "response_text": response.text,
         "token_exists": bool(SEAFILE_TOKEN),
+        "token_prefix": safe_prefix,
+        "token_length": len(SEAFILE_TOKEN) if SEAFILE_TOKEN else 0,
         "base_url": SEAFILE_BASE_URL,
         "repo_id": SEAFILE_REPO_ID,
+        "username": session.get("username"),
+        "participant_id": get_participant_id(),
         "current_chat_file": get_chat_filename()
     })
 
