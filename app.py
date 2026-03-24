@@ -5,15 +5,6 @@ import os
 import json
 import re
 
-# Presidio optional laden
-try:
-    from presidio_analyzer import AnalyzerEngine
-    from presidio_anonymizer import AnonymizerEngine
-    from presidio_anonymizer.entities import OperatorConfig
-    PRESIDIO_IMPORT_OK = True
-except Exception:
-    PRESIDIO_IMPORT_OK = False
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -48,22 +39,6 @@ SEAFILE_TOKEN = os.environ.get("SEAFILE_TOKEN")
 SEAFILE_REPO_ID = os.environ.get("SEAFILE_REPO_ID")
 STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 
-# -----------------------------
-# Presidio Engines
-# -----------------------------
-PRESIDIO_AVAILABLE = False
-analyzer = None
-anonymizer = None
-
-if PRESIDIO_IMPORT_OK:
-    try:
-        analyzer = AnalyzerEngine()
-        anonymizer = AnonymizerEngine()
-        PRESIDIO_AVAILABLE = True
-    except Exception as e:
-        print("Presidio konnte nicht initialisiert werden:", repr(e))
-        PRESIDIO_AVAILABLE = False
-
 
 # -----------------------------
 # Hilfsfunktionen
@@ -93,68 +68,47 @@ def get_chat_path():
     return f"/{get_chat_filename()}"
 
 
-def apply_basic_regex_anonymization(text: str) -> str:
+def anonymize_text(text):
     """
-    Einfache robuste Anonymisierung per Regex.
-    Funktioniert auch ohne Presidio.
+    Einfache und robuste Anonymisierung per Regex.
+    Damit werden offensichtliche personenbezogene Daten vor dem Speichern ersetzt.
     """
     if not text:
         return text
 
-    # E-Mail
+    # E-Mail-Adressen
     text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)
 
-    # Telefonnummern (vereinfacht)
+    # Telefonnummern
     text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)
 
     # URLs
     text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)
 
-    # IBAN grob
+    # IBAN
     text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b', '[IBAN]', text)
 
-    # Postleitzahlen grob (optional, sehr einfach)
-    text = re.sub(r'\b\d{5}\b', '[POSTCODE]', text)
+    # Deutsche Postleitzahlen
+    text = re.sub(r'\b\d{5}\b', '[PLZ]', text)
+
+    # Einfache Muster für Namensangaben
+    text = re.sub(
+        r'\b(Ich heiße|Mein Name ist)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'\1 [NAME]',
+        text
+    )
+
+    # Einfache Muster für Wohnortangaben
+    text = re.sub(
+        r'\b(Ich wohne in|Ich lebe in|Ich komme aus)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'\1 [ORT]',
+        text
+    )
+
+    # Geburtsdatum grob
+    text = re.sub(r'\b\d{1,2}\.\d{1,2}\.\d{2,4}\b', '[DATUM]', text)
 
     return text
-
-
-def anonymize_text(text):
-    """
-    Erst Regex-Anonymisierung.
-    Wenn Presidio verfügbar ist, danach zusätzliche Anonymisierung.
-    Es wird nichts zur Laufzeit installiert.
-    """
-    if not text:
-        return text
-
-    # Immer mindestens Regex
-    text = apply_basic_regex_anonymization(text)
-
-    if not PRESIDIO_AVAILABLE or analyzer is None or anonymizer is None:
-        return text
-
-    try:
-        analyzer_results = analyzer.analyze(
-            text=text,
-            language="en"
-        )
-
-        operators = {
-            "DEFAULT": OperatorConfig("replace", {"new_value": "[PII]"})
-        }
-
-        anonymized_result = anonymizer.anonymize(
-            text=text,
-            analyzer_results=analyzer_results,
-            operators=operators
-        )
-
-        return anonymized_result.text
-
-    except Exception as e:
-        print("Fehler bei Presidio:", repr(e))
-        return text
 
 
 def get_upload_link():
@@ -380,10 +334,10 @@ def send():
         return jsonify({"error": "Leere Nachricht"}), 400
 
     try:
-        # Bereits gespeicherte Historie laden
+        # Bereits gespeicherte, anonymisierte Historie laden
         chat_history = load_chat_history_from_seafile()
 
-        # Für das Modell die echte aktuelle Eingabe nutzen
+        # Für das Modell die aktuelle echte Eingabe nutzen
         model_history = chat_history.copy()
         model_history.append({
             "role": "user",
@@ -442,12 +396,16 @@ def test_seafile():
     })
 
 
-@app.route("/test_presidio")
-def test_presidio():
-    sample = "Ich heiße Lisa Müller, meine E-Mail ist lisa@example.com und meine Telefonnummer ist 0171 1234567."
+@app.route("/test_anonymization")
+def test_anonymization():
+    sample = (
+        "Ich heiße Lisa Müller, wohne in Mainz, "
+        "meine E-Mail ist lisa@example.com, "
+        "meine Telefonnummer ist 0171 1234567 "
+        "und meine PLZ ist 55116."
+    )
+
     return jsonify({
-        "presidio_import_ok": PRESIDIO_IMPORT_OK,
-        "presidio_available": PRESIDIO_AVAILABLE,
         "original": sample,
         "anonymized": anonymize_text(sample)
     })
