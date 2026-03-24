@@ -346,6 +346,17 @@ def test_seafile():
     })
 
 
+i@app.route("/test_presidio")
+def test_presidio():
+    sample = "Ich heiße Lisa Müller, meine E-Mail ist lisa@example.com und meine Telefonnummer ist 0171 1234567."
+
+    return jsonify({
+        "presidio_available": PRESIDIO_AVAILABLE,
+        "original": sample,
+        "anonymized": anonymize_text(sample)
+    })
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
