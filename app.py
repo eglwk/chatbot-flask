@@ -10,9 +10,9 @@ try:
     from presidio_analyzer import AnalyzerEngine
     from presidio_anonymizer import AnonymizerEngine
     from presidio_anonymizer.entities import OperatorConfig
-    PRESIDIO_AVAILABLE = True
+    PRESIDIO_IMPORT_OK = True
 except Exception:
-    PRESIDIO_AVAILABLE = False
+    PRESIDIO_IMPORT_OK = False
 
 load_dotenv()
 
@@ -51,17 +51,18 @@ STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 # -----------------------------
 # Presidio Engines
 # -----------------------------
-if PRESIDIO_AVAILABLE:
+PRESIDIO_AVAILABLE = False
+analyzer = None
+anonymizer = None
+
+if PRESIDIO_IMPORT_OK:
     try:
         analyzer = AnalyzerEngine()
         anonymizer = AnonymizerEngine()
-    except Exception:
-        analyzer = None
-        anonymizer = None
+        PRESIDIO_AVAILABLE = True
+    except Exception as e:
+        print("Presidio konnte nicht initialisiert werden:", repr(e))
         PRESIDIO_AVAILABLE = False
-else:
-    analyzer = None
-    anonymizer = None
 
 
 # -----------------------------
@@ -94,7 +95,8 @@ def get_chat_path():
 
 def apply_basic_regex_anonymization(text: str) -> str:
     """
-    Zusätzliche einfache Muster für deutsche Texte.
+    Einfache robuste Anonymisierung per Regex.
+    Funktioniert auch ohne Presidio.
     """
     if not text:
         return text
@@ -111,19 +113,22 @@ def apply_basic_regex_anonymization(text: str) -> str:
     # IBAN grob
     text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b', '[IBAN]', text)
 
+    # Postleitzahlen grob (optional, sehr einfach)
+    text = re.sub(r'\b\d{5}\b', '[POSTCODE]', text)
+
     return text
 
 
 def anonymize_text(text):
     """
-    Anonymisiert Text mit Presidio, falls verfügbar.
-    Zusätzlich werden einfache Regex-Muster angewendet.
-    Falls Presidio nicht geladen werden kann, wird wenigstens Regex genutzt.
+    Erst Regex-Anonymisierung.
+    Wenn Presidio verfügbar ist, danach zusätzliche Anonymisierung.
+    Es wird nichts zur Laufzeit installiert.
     """
     if not text:
         return text
 
-    # Erst einfache robuste Muster
+    # Immer mindestens Regex
     text = apply_basic_regex_anonymization(text)
 
     if not PRESIDIO_AVAILABLE or analyzer is None or anonymizer is None:
@@ -375,10 +380,10 @@ def send():
         return jsonify({"error": "Leere Nachricht"}), 400
 
     try:
-        # Gespeicherte Historie laden
+        # Bereits gespeicherte Historie laden
         chat_history = load_chat_history_from_seafile()
 
-        # Für das Modell mit echter Nutzereingabe arbeiten
+        # Für das Modell die echte aktuelle Eingabe nutzen
         model_history = chat_history.copy()
         model_history.append({
             "role": "user",
@@ -387,7 +392,7 @@ def send():
 
         reply = ask_mistral(model_history)
 
-        # Für Speicherung anonymisieren
+        # Für die Speicherung anonymisieren
         chat_history.append({
             "role": "user",
             "content": anonymize_text(user_message)
@@ -441,6 +446,7 @@ def test_seafile():
 def test_presidio():
     sample = "Ich heiße Lisa Müller, meine E-Mail ist lisa@example.com und meine Telefonnummer ist 0171 1234567."
     return jsonify({
+        "presidio_import_ok": PRESIDIO_IMPORT_OK,
         "presidio_available": PRESIDIO_AVAILABLE,
         "original": sample,
         "anonymized": anonymize_text(sample)
