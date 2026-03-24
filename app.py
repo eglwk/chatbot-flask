@@ -3,6 +3,16 @@ from dotenv import load_dotenv
 import requests
 import os
 import json
+import re
+
+# Presidio optional laden
+try:
+    from presidio_analyzer import AnalyzerEngine
+    from presidio_anonymizer import AnonymizerEngine
+    from presidio_anonymizer.entities import OperatorConfig
+    PRESIDIO_AVAILABLE = True
+except Exception:
+    PRESIDIO_AVAILABLE = False
 
 load_dotenv()
 
@@ -11,7 +21,6 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bitte-spaeter-sicher-ersetz
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_PARTITIONED"] = True
-
 
 # -----------------------------
 # Login-Daten
@@ -39,6 +48,21 @@ SEAFILE_TOKEN = os.environ.get("SEAFILE_TOKEN")
 SEAFILE_REPO_ID = os.environ.get("SEAFILE_REPO_ID")
 STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 
+# -----------------------------
+# Presidio Engines
+# -----------------------------
+if PRESIDIO_AVAILABLE:
+    try:
+        analyzer = AnalyzerEngine()
+        anonymizer = AnonymizerEngine()
+    except Exception:
+        analyzer = None
+        anonymizer = None
+        PRESIDIO_AVAILABLE = False
+else:
+    analyzer = None
+    anonymizer = None
+
 
 # -----------------------------
 # Hilfsfunktionen
@@ -51,9 +75,7 @@ def seafile_headers():
 
 
 def require_login():
-    if "username" not in session:
-        return False
-    return True
+    return "username" in session
 
 
 def get_participant_id():
@@ -68,6 +90,66 @@ def get_chat_filename():
 
 def get_chat_path():
     return f"/{get_chat_filename()}"
+
+
+def apply_basic_regex_anonymization(text: str) -> str:
+    """
+    Zusätzliche einfache Muster für deutsche Texte.
+    """
+    if not text:
+        return text
+
+    # E-Mail
+    text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)
+
+    # Telefonnummern (vereinfacht)
+    text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)
+
+    # URLs
+    text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)
+
+    # IBAN grob
+    text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b', '[IBAN]', text)
+
+    return text
+
+
+def anonymize_text(text):
+    """
+    Anonymisiert Text mit Presidio, falls verfügbar.
+    Zusätzlich werden einfache Regex-Muster angewendet.
+    Falls Presidio nicht geladen werden kann, wird wenigstens Regex genutzt.
+    """
+    if not text:
+        return text
+
+    # Erst einfache robuste Muster
+    text = apply_basic_regex_anonymization(text)
+
+    if not PRESIDIO_AVAILABLE or analyzer is None or anonymizer is None:
+        return text
+
+    try:
+        analyzer_results = analyzer.analyze(
+            text=text,
+            language="en"
+        )
+
+        operators = {
+            "DEFAULT": OperatorConfig("replace", {"new_value": "[PII]"})
+        }
+
+        anonymized_result = anonymizer.anonymize(
+            text=text,
+            analyzer_results=analyzer_results,
+            operators=operators
+        )
+
+        return anonymized_result.text
+
+    except Exception as e:
+        print("Fehler bei Presidio:", repr(e))
+        return text
 
 
 def get_upload_link():
@@ -293,18 +375,27 @@ def send():
         return jsonify({"error": "Leere Nachricht"}), 400
 
     try:
+        # Gespeicherte Historie laden
         chat_history = load_chat_history_from_seafile()
 
-        chat_history.append({
+        # Für das Modell mit echter Nutzereingabe arbeiten
+        model_history = chat_history.copy()
+        model_history.append({
             "role": "user",
             "content": user_message
         })
 
-        reply = ask_mistral(chat_history)
+        reply = ask_mistral(model_history)
+
+        # Für Speicherung anonymisieren
+        chat_history.append({
+            "role": "user",
+            "content": anonymize_text(user_message)
+        })
 
         chat_history.append({
             "role": "assistant",
-            "content": reply
+            "content": anonymize_text(reply)
         })
 
         save_chat_history_to_seafile(chat_history)
@@ -349,7 +440,6 @@ def test_seafile():
 @app.route("/test_presidio")
 def test_presidio():
     sample = "Ich heiße Lisa Müller, meine E-Mail ist lisa@example.com und meine Telefonnummer ist 0171 1234567."
-
     return jsonify({
         "presidio_available": PRESIDIO_AVAILABLE,
         "original": sample,
