@@ -346,7 +346,7 @@ def test_seafile():
     })
 
 
-i@app.route("/test_presidio")
+@app.route("/test_presidio")
 def test_presidio():
     sample = "Ich heiße Lisa Müller, meine E-Mail ist lisa@example.com und meine Telefonnummer ist 0171 1234567."
 
