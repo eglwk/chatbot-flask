@@ -2,3 +2,6 @@ Flask
 requests
 python-dotenv
 gunicorn
+presidio-analyzer
+presidio-anonymizer
+spacy
