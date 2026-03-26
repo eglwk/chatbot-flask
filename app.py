@@ -5,15 +5,6 @@ import os
 import json
 import re
 
-# Presidio optional laden
-try:
-    from presidio_analyzer import AnalyzerEngine
-    from presidio_anonymizer import AnonymizerEngine
-    from presidio_anonymizer.entities import OperatorConfig
-    PRESIDIO_IMPORT_OK = True
-except Exception:
-    PRESIDIO_IMPORT_OK = False
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -22,6 +13,9 @@ app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_PARTITIONED"] = True
 
+# -----------------------------
+# Login-Daten
+# -----------------------------
 USERS = {
     "test": "12345"
 }
@@ -30,6 +24,9 @@ USER_PARTICIPANT_IDS = {
     "test": "vp1"
 }
 
+# -----------------------------
+# API / externe Dienste
+# -----------------------------
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
 MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "ministral-3b-2512")
 MISTRAL_API_URL = os.environ.get(
@@ -42,20 +39,10 @@ SEAFILE_TOKEN = os.environ.get("SEAFILE_TOKEN")
 SEAFILE_REPO_ID = os.environ.get("SEAFILE_REPO_ID")
 STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 
-PRESIDIO_AVAILABLE = False
-analyzer = None
-anonymizer = None
 
-if PRESIDIO_IMPORT_OK:
-    try:
-        analyzer = AnalyzerEngine()
-        anonymizer = AnonymizerEngine()
-        PRESIDIO_AVAILABLE = True
-    except Exception as e:
-        print("Presidio konnte nicht initialisiert werden:", repr(e))
-        PRESIDIO_AVAILABLE = False
-
-
+# -----------------------------
+# Hilfsfunktionen
+# -----------------------------
 def seafile_headers():
     return {
         "Authorization": f"Token {SEAFILE_TOKEN}",
@@ -81,72 +68,83 @@ def get_chat_path():
     return f"/{get_chat_filename()}"
 
 
-def apply_basic_regex_anonymization(text: str) -> str:
-    if not text:
-        return text
-
-    text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)
-    text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)
-    text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)
-    return text
-
-
 def anonymize_text(text):
+    """
+    Einfache und robuste Anonymisierung per Regex.
+    Damit werden offensichtliche personenbezogene Daten vor dem Speichern ersetzt.
+    """
     if not text:
         return text
 
-    # Erst einfache sichere Regex-Muster
-    text = apply_basic_regex_anonymization(text)
+    # E-Mail-Adressen
+    text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)
 
-    if not PRESIDIO_AVAILABLE or analyzer is None or anonymizer is None:
-        return text
+    # Telefonnummern
+    text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)
 
-    try:
-        analyzer_results = analyzer.analyze(
-            text=text,
-            language="en"
-        )
+    # URLs
+    text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)
 
-        operators = {
-            "DEFAULT": OperatorConfig("replace", {"new_value": "[PII]"})
-        }
+    # IBAN
+    text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b', '[IBAN]', text)
 
-        anonymized_result = anonymizer.anonymize(
-            text=text,
-            analyzer_results=analyzer_results,
-            operators=operators
-        )
+    # Deutsche Postleitzahlen
+    text = re.sub(r'\b\d{5}\b', '[PLZ]', text)
 
-        return anonymized_result.text
+    # Einfache Muster für Namensangaben
+    text = re.sub(
+        r'\b(Ich heiße|Mein Name ist)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'\1 [NAME]',
+        text
+    )
 
-    except Exception as e:
-        print("Fehler bei Presidio:", repr(e))
-        return text
+    # Einfache Muster für Wohnortangaben
+    text = re.sub(
+        r'\b(Ich wohne in|Ich lebe in|Ich komme aus)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'\1 [ORT]',
+        text
+    )
+
+    # Geburtsdatum grob
+    text = re.sub(r'\b\d{1,2}\.\d{1,2}\.\d{2,4}\b', '[DATUM]', text)
+
+    return text
 
 
 def get_upload_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/upload-link/"
     response = requests.get(url, headers=seafile_headers(), timeout=30)
+
     if response.status_code != 200:
         raise Exception(f"Upload-Link fehlgeschlagen: {response.status_code} {response.text}")
+
     return response.text.strip('"')
 
 
 def get_update_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/update-link/"
     response = requests.get(url, headers=seafile_headers(), timeout=30)
+
     if response.status_code != 200:
         raise Exception(f"Update-Link fehlgeschlagen: {response.status_code} {response.text}")
+
     return response.text.strip('"')
 
 
 def get_download_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/file/"
     params = {"p": get_chat_path()}
-    response = requests.get(url, headers=seafile_headers(), params=params, timeout=30)
+
+    response = requests.get(
+        url,
+        headers=seafile_headers(),
+        params=params,
+        timeout=30
+    )
 
     if response.status_code == 404:
         return None
+
     if response.status_code != 200:
         raise Exception(f"Download-Link fehlgeschlagen: {response.status_code} {response.text}")
 
@@ -160,12 +158,15 @@ def load_chat_history_from_seafile():
             return []
 
         file_response = requests.get(download_link, timeout=30)
+
         if file_response.status_code != 200:
             return []
 
         data = file_response.json()
+
         if isinstance(data, list):
             return data
+
         return []
     except Exception:
         return []
@@ -220,6 +221,7 @@ def update_file_in_seafile(file_bytes):
 
 def save_chat_history_to_seafile(chat_history):
     file_bytes = json.dumps(chat_history, ensure_ascii=False, indent=2).encode("utf-8")
+
     existing = load_chat_history_from_seafile()
 
     if existing:
@@ -272,6 +274,9 @@ def ask_mistral(chat_history):
     return result["choices"][0]["message"]["content"]
 
 
+# -----------------------------
+# Routen
+# -----------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -329,8 +334,10 @@ def send():
         return jsonify({"error": "Leere Nachricht"}), 400
 
     try:
+        # Bereits gespeicherte, anonymisierte Historie laden
         chat_history = load_chat_history_from_seafile()
 
+        # Für das Modell die aktuelle echte Eingabe nutzen
         model_history = chat_history.copy()
         model_history.append({
             "role": "user",
@@ -339,6 +346,7 @@ def send():
 
         reply = ask_mistral(model_history)
 
+        # Für die Speicherung anonymisieren
         chat_history.append({
             "role": "user",
             "content": anonymize_text(user_message)
@@ -357,12 +365,47 @@ def send():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/test_presidio")
-def test_presidio():
-    sample = "Ich heiße Lisa Müller, meine E-Mail ist lisa@example.com und meine Telefonnummer ist 0171 1234567."
+@app.route("/test_seafile")
+def test_seafile():
+    if not require_login():
+        return jsonify({"error": "Nicht eingeloggt"}), 401
+
+    headers = {
+        "Authorization": f"Token {SEAFILE_TOKEN}",
+        "Accept": "application/json"
+    }
+
+    url = f"{SEAFILE_BASE_URL}/api2/repos/"
+    response = requests.get(url, headers=headers, timeout=30)
+
+    safe_prefix = ""
+    if SEAFILE_TOKEN:
+        safe_prefix = SEAFILE_TOKEN[:8]
+
     return jsonify({
-        "presidio_import_ok": PRESIDIO_IMPORT_OK,
-        "presidio_available": PRESIDIO_AVAILABLE,
+        "status_code": response.status_code,
+        "response_text": response.text,
+        "token_exists": bool(SEAFILE_TOKEN),
+        "token_prefix": safe_prefix,
+        "token_length": len(SEAFILE_TOKEN) if SEAFILE_TOKEN else 0,
+        "base_url": SEAFILE_BASE_URL,
+        "repo_id": SEAFILE_REPO_ID,
+        "username": session.get("username"),
+        "participant_id": get_participant_id(),
+        "current_chat_file": get_chat_filename()
+    })
+
+
+@app.route("/test_anonymization")
+def test_anonymization():
+    sample = (
+        "Ich heiße Lisa Müller, wohne in Mainz, "
+        "meine E-Mail ist lisa@example.com, "
+        "meine Telefonnummer ist 0171 1234567 "
+        "und meine PLZ ist 55116."
+    )
+
+    return jsonify({
         "original": sample,
         "anonymized": anonymize_text(sample)
     })
