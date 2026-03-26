@@ -76,7 +76,6 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
-            participant_id TEXT UNIQUE NOT NULL,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -92,9 +91,9 @@ def create_user(participant_id, username, password):
     password_hash = generate_password_hash(password)
 
     cur.execute("""
-        INSERT INTO users (participant_id, username, password_hash)
-        VALUES (%s, %s, %s)
-    """, (participant_id, username, password_hash))
+        INSERT INTO users (username, password_hash)
+        VALUES (%s, %s)
+    """, (username, password_hash))
 
     conn.commit()
     cur.close()
@@ -139,7 +138,7 @@ def require_login():
     return "username" in session and "participant_id" in session
 
 def get_participant_id():
-    return session.get("participant_id", "unknown")
+    return session.get("username", "unknown")
 
 def get_chat_filename():
     participant_id = get_participant_id()
@@ -446,43 +445,35 @@ def ask_mistral(chat_history):
 # -----------------------------
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    participant_id = request.args.get("pid", "").strip()
-
     if request.method == "POST":
-        participant_id = request.form.get("participant_id", "").strip()
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
 
-        if not participant_id or not username or not password:
+        if not username or not password:
             return render_template(
                 "register.html",
-                error="Bitte alle Felder ausfüllen.",
-                participant_id=participant_id
+                error="Bitte alle Felder ausfüllen."
             )
 
-        if get_user_by_participant_id(participant_id):
+        if get_user_by_username(username):
             return render_template(
                 "register.html",
-                error="Für diese Teilnehmer-ID wurde bereits ein Konto angelegt.",
-                participant_id=participant_id
+                error="Dieser Benutzername existiert bereits."
             )
 
         try:
-            create_user(participant_id, username, password)
+            create_user(username, password)
             return redirect(url_for("login"))
         except Exception as e:
             return render_template(
                 "register.html",
-                error=f"Registrierung fehlgeschlagen: {str(e)}",
-                participant_id=participant_id
+                error=f"Registrierung fehlgeschlagen: {str(e)}"
             )
 
-    return render_template("register.html", participant_id=participant_id)
+    return render_template("register.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    participant_id = request.args.get("pid", "").strip()
-
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
@@ -491,12 +482,11 @@ def login():
 
         if user and check_password_hash(user["password_hash"], password):
             session["username"] = user["username"]
-            session["participant_id"] = user["participant_id"]
             return redirect(url_for("home"))
 
-        return render_template("login.html", error="Login fehlgeschlagen.", participant_id=participant_id)
+        return render_template("login.html", error="Login fehlgeschlagen.")
 
-    return render_template("login.html", participant_id=participant_id)
+    return render_template("login.html")
 
 @app.route("/logout")
 def logout():
