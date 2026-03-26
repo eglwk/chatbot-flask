@@ -116,9 +116,7 @@ def get_user_by_username(username):
     return user
 
 
-# -----------------------------
-# Datenbank direkt beim App-Start initialisieren
-# -----------------------------
+# Datenbank beim Start initialisieren
 try:
     init_db()
     print("Datenbank initialisiert.")
@@ -140,13 +138,24 @@ def require_login():
     return "username" in session
 
 
-def get_participant_id():
+def get_current_username():
     return session.get("username", "unknown")
 
 
+def make_safe_filename(value):
+    value = value.strip()
+    value = re.sub(r'[^a-zA-Z0-9_-]', '_', value)
+    return value
+
+
+def get_participant_id():
+    # Nur für Template-Kompatibilität, falls index1.html noch participant_id anzeigt
+    return get_current_username()
+
+
 def get_chat_filename():
-    username = get_participant_id()
-    return f"participant_{username}_day{STUDY_DAY}.json"
+    username = make_safe_filename(get_current_username())
+    return f"{username}_day{STUDY_DAY}.json"
 
 
 def get_chat_path():
@@ -172,6 +181,7 @@ def anonymize_text(text):
     if not text:
         return text
 
+    # Strukturierte Daten
     text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)
     text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)
     text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)
@@ -181,6 +191,7 @@ def anonymize_text(text):
     text = re.sub(r'\b\d{1,2}/\d{1,2}/\d{2,4}\b', '[DATUM]', text)
     text = re.sub(r'@[A-Za-z0-9_\.]+', '[USERNAME]', text)
 
+    # Adressen
     text = re.sub(
         r'\b[A-ZÄÖÜ][a-zäöüß\-]+(?:straße|str\.|weg|allee|platz|gasse|ring|ufer)\s+\d+[a-zA-Z]?\b',
         '[ADRESSE]',
@@ -202,6 +213,7 @@ def anonymize_text(text):
         flags=re.IGNORECASE
     )
 
+    # Alter / Geburtsangaben
     text = re.sub(
         r'\b(geboren am|mein geburtsdatum ist)\s+[^,.\n]+',
         r'\1 [DATUM]',
@@ -216,6 +228,7 @@ def anonymize_text(text):
         flags=re.IGNORECASE
     )
 
+    # Explizite Namensangaben
     text = re.sub(
         r'\b(Ich heiße|Mein Name ist|Ich bin)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){0,2})',
         r'\1 [NAME]',
@@ -235,6 +248,7 @@ def anonymize_text(text):
         flags=re.IGNORECASE
     )
 
+    # Institutionen
     text = re.sub(
         r'\b(Ich arbeite bei|Ich arbeite an|Ich studiere an|Ich studiere bei|Ich bin an der|Ich bin bei)\s+([^,.\n]+)',
         r'\1 [INSTITUTION]',
@@ -242,12 +256,14 @@ def anonymize_text(text):
         flags=re.IGNORECASE
     )
 
+    # Feste Orte / Institutionen aus Listen
     for city in sorted(COMMON_GERMAN_CITIES, key=len, reverse=True):
         text = re.sub(rf'\b{re.escape(city)}\b', '[ORT]', text, flags=re.IGNORECASE)
 
     for inst in sorted(INSTITUTIONS, key=len, reverse=True):
         text = re.sub(rf'\b{re.escape(inst)}\b', '[INSTITUTION]', text, flags=re.IGNORECASE)
 
+    # Namen nach typischen Kontexten
     context_patterns = [
         r'(\bmit)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
         r'(\bbei)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
@@ -265,6 +281,7 @@ def anonymize_text(text):
             return f"{prefix} {mask_capitalized_name_phrase(name_phrase)}"
         text = re.sub(pattern, repl, text)
 
+    # Verben + Name
     verb_patterns = [
         r'(\b(?:habe|hatte|treffe|traf|gesehen|sah|kenne|kannte|schrieb|schreibe|rief|rufe|kontaktierte|sprach mit|telefonierte mit|besuchte)\b)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)'
     ]
@@ -276,6 +293,7 @@ def anonymize_text(text):
             return f"{verb} {mask_capitalized_name_phrase(name_phrase)}"
         text = re.sub(pattern, repl2, text, flags=re.IGNORECASE)
 
+    # Weitere lockere Formulierungen
     text = re.sub(
         r'\b(war mit)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
         lambda m: f"{m.group(1)} {mask_capitalized_name_phrase(m.group(2))}",
@@ -503,6 +521,7 @@ def login():
             return render_template("login.html", error=f"Datenbankfehler: {str(e)}")
 
         if user and check_password_hash(user["password_hash"], password):
+            session.clear()
             session["username"] = user["username"]
             return redirect(url_for("home"))
 
@@ -563,6 +582,7 @@ def send():
 
         reply = ask_mistral(model_history)
 
+        # Nur anonymisierte Inhalte speichern
         chat_history.append({
             "role": "user",
             "content": anonymize_text(user_message)
@@ -601,6 +621,18 @@ def test_db():
         }), 500
 
 
+@app.route("/test_chatfile")
+def test_chatfile():
+    if not require_login():
+        return jsonify({"error": "Nicht eingeloggt"}), 401
+
+    return jsonify({
+        "username": session.get("username"),
+        "chat_filename": get_chat_filename(),
+        "chat_path": get_chat_path()
+    })
+
+
 @app.route("/test_seafile")
 def test_seafile():
     if not require_login():
@@ -620,7 +652,6 @@ def test_seafile():
         "base_url": SEAFILE_BASE_URL,
         "repo_id": SEAFILE_REPO_ID,
         "username": session.get("username"),
-        "participant_id": get_participant_id(),
         "current_chat_file": get_chat_filename()
     })
 
@@ -642,6 +673,11 @@ def test_anonymization():
         "original": sample,
         "anonymized": anonymize_text(sample)
     })
+
+
+@app.route("/healthz")
+def healthz():
+    return "ok", 200
 
 
 if __name__ == "__main__":
