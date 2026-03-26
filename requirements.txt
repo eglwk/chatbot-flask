@@ -1,6 +1,6 @@
 Flask
-Flask-SQLAlchemy
-psycopg[binary]
 requests
 python-dotenv
 gunicorn
+psycopg2-binary
+Werkzeug
