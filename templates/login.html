@@ -1,104 +1,20 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login</title>
+{% extends "base.html" %}
+{% block content %}
+  <h1>Login</h1>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 0;
-    }
+  <form method="post">
+    <label for="username">Benutzername</label><br>
+    <input
+      type="text"
+      id="username"
+      name="username"
+      value="{{ prefill_username }}"
+      required
+    ><br><br>
 
-    .login-container {
-      width: 360px;
-      margin: 100px auto;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      padding: 30px;
-      box-sizing: border-box;
-    }
+    <label for="password">Passwort</label><br>
+    <input type="password" id="password" name="password" required><br><br>
 
-    h1 {
-      font-size: 22px;
-      margin-top: 0;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: bold;
-    }
-
-    input {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 16px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      box-sizing: border-box;
-      font-size: 15px;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #007bff;
-      border: none;
-      color: white;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #0069d9;
-    }
-
-    .error {
-      background: #ffe3e3;
-      color: #b00020;
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      font-size: 14px;
-    }
-
-    .hint {
-      margin-top: 18px;
-      font-size: 13px;
-      color: #666;
-      text-align: center;
-    }
-  </style>
-</head>
-<body>
-  <div class="login-container">
-    <h1>Login</h1>
-
-    {% if error %}
-      <div class="error">{{ error }}</div>
-    {% endif %}
-
-    <form method="POST" action="/login">
-      <label for="username">Benutzername</label>
-      <input type="text" id="username" name="username" required>
-
-      <label for="password">Passwort</label>
-      <input type="password" id="password" name="password" required>
-
-      <button type="submit">Einloggen</button>
-    </form>
-
-    <div class="hint">
-      Testzugang: Benutzername <b>test</b>, Passwort <b>12345</b>
-    </div>
-  </div>
-</body>
-</html>
+    <button type="submit">Einloggen</button>
+  </form>
+{% endblock %}
