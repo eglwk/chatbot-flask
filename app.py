@@ -1,559 +1,178 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from dotenv import load_dotenv
-import requests
 import os
-import json
-import re
-
-load_dotenv()
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bitte-spaeter-sicher-ersetzen")
-app.config["SESSION_COOKIE_SECURE"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
-app.config["SESSION_COOKIE_PARTITIONED"] = True
 
-# -----------------------------
-# Login-Daten
-# -----------------------------
-USERS = {
-    "test": "12345"
-}
-
-USER_PARTICIPANT_IDS = {
-    "test": "vp1"
-}
-
-# -----------------------------
-# API / externe Dienste
-# -----------------------------
-MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY")
-MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "ministral-3b-2512")
-MISTRAL_API_URL = os.environ.get(
-    "MISTRAL_API_URL",
-    "https://api.mistral.ai/v1/chat/completions"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL",
+    "sqlite:///local.db"
 )
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-SEAFILE_BASE_URL = os.environ.get("SEAFILE_BASE_URL")
-SEAFILE_TOKEN = os.environ.get("SEAFILE_TOKEN")
-SEAFILE_REPO_ID = os.environ.get("SEAFILE_REPO_ID")
-STUDY_DAY = os.environ.get("STUDY_DAY", "1")
-
-# -----------------------------
-# Blacklists / Hilfslisten
-# -----------------------------
-COMMON_GERMAN_CITIES = [
-    "Mainz", "Wiesbaden", "Frankfurt", "Köln", "Berlin", "Hamburg", "München",
-    "Stuttgart", "Darmstadt", "Mannheim", "Heidelberg", "Bonn", "Leipzig",
-    "Dresden", "Koblenz", "Trier", "Ingelheim", "Bad Kreuznach", "Ludwigshafen"
-]
-
-INSTITUTIONS = [
-    "JGU",
-    "Johannes Gutenberg-Universität",
-    "Johannes Gutenberg Universität",
-    "Universität Mainz",
-    "Uni Mainz",
-    "Universität",
-    "Hochschule",
-    "Schule",
-    "Klinik",
-    "Krankenhaus"
-]
-
-# Wörter, die großgeschrieben werden dürfen und nicht blind als Name maskiert werden sollen
-SAFE_CAPITALIZED_WORDS = {
-    "Ich", "Heute", "Gestern", "Morgen", "Montag", "Dienstag", "Mittwoch",
-    "Donnerstag", "Freitag", "Samstag", "Sonntag", "Januar", "Februar",
-    "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober",
-    "November", "Dezember", "Deutsch", "Deutschland"
-}
+db = SQLAlchemy(app)
 
 
-# -----------------------------
-# Hilfsfunktionen
-# -----------------------------
-def seafile_headers():
-    return {
-        "Authorization": f"Token {SEAFILE_TOKEN}",
-        "Accept": "application/json"
-    }
+class User(db.Model):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    sosci_serial = db.Column(db.String(128), unique=True, nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)
+
+    def has_password(self) -> bool:
+        return bool(self.password_hash)
 
 
-def require_login():
-    return "username" in session
+@app.route("/")
+def index():
+    user_id = session.get("user_id")
+    if user_id:
+        return redirect(url_for("chat"))
+    return redirect(url_for("login"))
 
 
-def get_participant_id():
-    username = session.get("username")
-    return USER_PARTICIPANT_IDS.get(username, "unknown")
-
-
-def get_chat_filename():
-    participant_id = get_participant_id()
-    return f"participant_{participant_id}_day{STUDY_DAY}.json"
-
-
-def get_chat_path():
-    return f"/{get_chat_filename()}"
-
-
-def replace_listed_locations(text):
-    for city in sorted(COMMON_GERMAN_CITIES, key=len, reverse=True):
-        text = re.sub(rf"\b{re.escape(city)}\b", "[ORT]", text, flags=re.IGNORECASE)
-    return text
-
-
-def replace_listed_institutions(text):
-    for inst in sorted(INSTITUTIONS, key=len, reverse=True):
-        text = re.sub(rf"\b{re.escape(inst)}\b", "[INSTITUTION]", text, flags=re.IGNORECASE)
-    return text
-
-
-def mask_capitalized_name_phrase(phrase):
+@app.route("/resume")
+def resume():
     """
-    Maskiert 1-2 großgeschriebene Wörter als Namen.
-    Beispiel: 'Lisa' oder 'Lisa Müller'
+    Aufruf z.B. /resume?s=ABC123
+    - Falls User zu SERIAL existiert, aber noch kein Passwort hat: set_password
+    - Falls Passwort existiert: login
     """
-    words = phrase.split()
-    cleaned = []
-    for w in words:
-        if w in SAFE_CAPITALIZED_WORDS:
-            cleaned.append(w)
-        else:
-            cleaned.append("[NAME]")
-    return " ".join(cleaned)
+    serial = request.args.get("s", "").strip()
+
+    if not serial:
+        return "Fehlende SERIAL im Link.", 400
+
+    user = User.query.filter_by(sosci_serial=serial).first()
+
+    if not user:
+        return (
+            "Für diese SERIAL wurde noch kein Account vorbereitet. "
+            "Bitte Studienleitung kontaktieren.",
+            404,
+        )
+
+    session["pending_serial"] = serial
+
+    if not user.has_password():
+        return redirect(url_for("set_password"))
+
+    return redirect(url_for("login"))
 
 
-def anonymize_text(text):
+@app.route("/set-password", methods=["GET", "POST"])
+def set_password():
     """
-    Strengere Regex-Anonymisierung.
-    Ziel: möglichst viele personenbezogene Daten vor dem Speichern ersetzen.
+    Passwort wird nur einmal gesetzt.
+    Voraussetzung: session['pending_serial'] ist vorhanden.
     """
-    if not text:
-        return text
+    serial = session.get("pending_serial")
 
-    # -----------------------------
-    # Strukturierte Daten
-    # -----------------------------
-    text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)  # E-Mail
-    text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)  # Telefon
-    text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)  # URLs
-    text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b', '[IBAN]', text)  # IBAN
-    text = re.sub(r'\b\d{5}\b', '[PLZ]', text)  # Postleitzahl
-    text = re.sub(r'\b\d{1,2}\.\d{1,2}\.\d{2,4}\b', '[DATUM]', text)  # Datum
-    text = re.sub(r'\b\d{1,2}/\d{1,2}/\d{2,4}\b', '[DATUM]', text)  # Datum alt.
-    text = re.sub(r'@[A-Za-z0-9_\.]+', '[USERNAME]', text)  # Social / Handles
+    if not serial:
+        flash("Ungültiger Aufruf. Bitte nutzen Sie den Link aus der Studie.")
+        return redirect(url_for("login"))
 
-    # Straßen + Hausnummer
-    text = re.sub(
-        r'\b[A-ZÄÖÜ][a-zäöüß\-]+(?:straße|str\.|weg|allee|platz|gasse|ring|ufer)\s+\d+[a-zA-Z]?\b',
-        '[ADRESSE]',
-        text,
-        flags=re.IGNORECASE
-    )
+    user = User.query.filter_by(sosci_serial=serial).first()
 
-    # Geburtsangaben / Alter
-    text = re.sub(r'\b(geboren am|mein geburtsdatum ist)\s+[^,.\n]+', r'\1 [DATUM]', text, flags=re.IGNORECASE)
-    text = re.sub(r'\bich bin\s+\d{1,3}\s+jahre?\s+alt\b', 'ich bin [ALTER] jahre alt', text, flags=re.IGNORECASE)
+    if not user:
+        flash("Kein vorbereiteter Account gefunden.")
+        return redirect(url_for("login"))
 
-    # -----------------------------
-    # Explizite Namensangaben
-    # -----------------------------
-    text = re.sub(
-        r'\b(Ich heiße|Mein Name ist|Ich bin)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){0,2})',
-        r'\1 [NAME]',
-        text
-    )
+    if user.has_password():
+        return redirect(url_for("login"))
 
-    # Kontakte / Beziehungen
-    text = re.sub(
-        r'\b(mein Freund|meine Freundin|mein Mann|meine Frau|mein Bruder|meine Schwester|meine Mutter|mein Vater|mein Sohn|meine Tochter|mein Kollege|meine Kollegin)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){0,2})',
-        r'\1 [NAME]',
-        text,
-        flags=re.IGNORECASE
-    )
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        password_repeat = request.form.get("password_repeat", "")
 
-    # -----------------------------
-    # Wohnort / Herkunft / Institution
-    # -----------------------------
-    text = re.sub(
-        r'\b(Ich wohne in|Ich lebe in|Ich komme aus|Ich bin aus|Mein Wohnort ist)\s+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]+){0,3})',
-        r'\1 [ORT]',
-        text
-    )
+        if not password:
+            flash("Bitte ein Passwort eingeben.")
+            return render_template("set_password.html", username=user.username)
 
-    text = re.sub(
-        r'\b(Ich arbeite bei|Ich arbeite an|Ich studiere an|Ich studiere bei|Ich bin an der|Ich bin bei)\s+([^,.\n]+)',
-        r'\1 [INSTITUTION]',
-        text,
-        flags=re.IGNORECASE
-    )
+        if len(password) < 8:
+            flash("Das Passwort muss mindestens 8 Zeichen lang sein.")
+            return render_template("set_password.html", username=user.username)
 
-    # feste Listen
-    text = replace_listed_locations(text)
-    text = replace_listed_institutions(text)
+        if password != password_repeat:
+            flash("Die Passwörter stimmen nicht überein.")
+            return render_template("set_password.html", username=user.username)
 
-    # -----------------------------
-    # Namen nach typischen Kontexten
-    # -----------------------------
-    # Beispiele:
-    # "mit Lisa einkaufen"
-    # "bei Max"
-    # "von Anna"
-    # "für Paul"
-    # "zusammen mit Lisa Müller"
-    context_patterns = [
-        r'(\bmit)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
-        r'(\bbei)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
-        r'(\bvon)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
-        r'(\bfür)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
-        r'(\bzusammen mit)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
-        r'(\bneben)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
-        r'(\bgegenüber von)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)'
-    ]
+        user.password_hash = generate_password_hash(password)
+        db.session.commit()
 
-    for pattern in context_patterns:
-        def repl(match):
-            prefix = match.group(1)
-            name_phrase = match.group(2)
-            return f"{prefix} {mask_capitalized_name_phrase(name_phrase)}"
-        text = re.sub(pattern, repl, text)
+        flash("Passwort erfolgreich gesetzt. Bitte jetzt einloggen.")
+        return redirect(url_for("login"))
 
-    # -----------------------------
-    # Verben + Name
-    # Beispiele:
-    # "ich habe Lisa getroffen"
-    # "ich schrieb Max"
-    # "ich rief Anna an"
-    # -----------------------------
-    verb_name_patterns = [
-        r'(\b(?:habe|hatte|treffe|traf|gesehen|sah|kenne|kannte|schrieb|schreibe|rief|rufe|telefonierte mit|sprach mit)\b)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)'
-    ]
-
-    for pattern in verb_name_patterns:
-        def repl2(match):
-            verb = match.group(1)
-            name_phrase = match.group(2)
-            return f"{verb} {mask_capitalized_name_phrase(name_phrase)}"
-        text = re.sub(pattern, repl2, text, flags=re.IGNORECASE)
-
-    # -----------------------------
-    # Sehr aggressive Restregel:
-    # Großgeschriebenes Wortpaar nach "mit/bei/von/für" etc. ist schon oben abgedeckt.
-    # Hier maskieren wir zusätzlich "Herr X", "Frau Y", "Dr. Z"
-    # -----------------------------
-    text = re.sub(
-        r'\b(Herr|Frau|Dr\.|Prof\.)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
-        r'\1 [NAME]',
-        text
-    )
-
-    return text
+    return render_template("set_password.html", username=user.username)
 
 
-def get_upload_link():
-    url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/upload-link/"
-    response = requests.get(url, headers=seafile_headers(), timeout=30)
-
-    if response.status_code != 200:
-        raise Exception(f"Upload-Link fehlgeschlagen: {response.status_code} {response.text}")
-
-    return response.text.strip('"')
-
-
-def get_update_link():
-    url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/update-link/"
-    response = requests.get(url, headers=seafile_headers(), timeout=30)
-
-    if response.status_code != 200:
-        raise Exception(f"Update-Link fehlgeschlagen: {response.status_code} {response.text}")
-
-    return response.text.strip('"')
-
-
-def get_download_link():
-    url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/file/"
-    params = {"p": get_chat_path()}
-
-    response = requests.get(
-        url,
-        headers=seafile_headers(),
-        params=params,
-        timeout=30
-    )
-
-    if response.status_code == 404:
-        return None
-
-    if response.status_code != 200:
-        raise Exception(f"Download-Link fehlgeschlagen: {response.status_code} {response.text}")
-
-    return response.text.strip('"')
-
-
-def load_chat_history_from_seafile():
-    try:
-        download_link = get_download_link()
-        if not download_link:
-            return []
-
-        file_response = requests.get(download_link, timeout=30)
-
-        if file_response.status_code != 200:
-            return []
-
-        data = file_response.json()
-
-        if isinstance(data, list):
-            return data
-
-        return []
-    except Exception:
-        return []
-
-
-def upload_new_file_to_seafile(file_bytes):
-    upload_link = get_upload_link()
-
-    files = {
-        "file": (get_chat_filename(), file_bytes, "application/json")
-    }
-
-    data = {
-        "parent_dir": "/",
-        "replace": "1"
-    }
-
-    response = requests.post(
-        upload_link,
-        headers={"Authorization": f"Token {SEAFILE_TOKEN}"},
-        files=files,
-        data=data,
-        timeout=60
-    )
-
-    if response.status_code != 200:
-        raise Exception(f"Upload fehlgeschlagen: {response.status_code} {response.text}")
-
-
-def update_file_in_seafile(file_bytes):
-    update_link = get_update_link()
-
-    files = {
-        "file": (get_chat_filename(), file_bytes, "application/json")
-    }
-
-    data = {
-        "target_file": get_chat_path()
-    }
-
-    response = requests.post(
-        update_link,
-        headers={"Authorization": f"Token {SEAFILE_TOKEN}"},
-        files=files,
-        data=data,
-        timeout=60
-    )
-
-    if response.status_code != 200:
-        raise Exception(f"Update fehlgeschlagen: {response.status_code} {response.text}")
-
-
-def save_chat_history_to_seafile(chat_history):
-    file_bytes = json.dumps(chat_history, ensure_ascii=False, indent=2).encode("utf-8")
-
-    existing = load_chat_history_from_seafile()
-
-    if existing:
-        update_file_in_seafile(file_bytes)
-    else:
-        upload_new_file_to_seafile(file_bytes)
-
-
-def ask_mistral(chat_history):
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "Du bist Chatti, ein freundlicher, zugewandter Chatbot. "
-                "Antworte klar, warm und nicht zu lang. "
-                "Wenn die Person etwas Persönliches schreibt, reagiere empathisch, aber nicht übertrieben. "
-                "Schreibe auf Deutsch."
-            )
-        }
-    ]
-
-    for msg in chat_history[-10:]:
-        if isinstance(msg, dict) and "role" in msg and "content" in msg:
-            messages.append({
-                "role": msg["role"],
-                "content": msg["content"]
-            })
-
-    headers = {
-        "Authorization": f"Bearer {MISTRAL_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "model": MISTRAL_MODEL,
-        "messages": messages
-    }
-
-    response = requests.post(
-        MISTRAL_API_URL,
-        headers=headers,
-        json=data,
-        timeout=60
-    )
-
-    if response.status_code != 200:
-        raise Exception(f"Mistral-Fehler: {response.status_code} {response.text}")
-
-    result = response.json()
-    return result["choices"][0]["message"]["content"]
-
-
-# -----------------------------
-# Routen
-# -----------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    prefill_username = ""
+
+    pending_serial = session.get("pending_serial")
+    if pending_serial:
+        user_from_serial = User.query.filter_by(sosci_serial=pending_serial).first()
+        if user_from_serial:
+            prefill_username = user_from_serial.username
+
     if request.method == "POST":
         username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
+        password = request.form.get("password", "")
 
-        if username in USERS and USERS[username] == password:
-            session["username"] = username
-            return redirect(url_for("home"))
+        user = User.query.filter_by(username=username).first()
 
-        return render_template("login.html", error="Login fehlgeschlagen. Bitte Benutzername und Passwort prüfen.")
+        if not user:
+            flash("Unbekannter Benutzername.")
+            return render_template("login.html", prefill_username=prefill_username)
 
-    return render_template("login.html")
+        if not user.has_password():
+            session["pending_serial"] = user.sosci_serial
+            flash("Für diesen Account wurde noch kein Passwort gesetzt.")
+            return redirect(url_for("set_password"))
+
+        if not check_password_hash(user.password_hash, password):
+            flash("Falsches Passwort.")
+            return render_template("login.html", prefill_username=prefill_username)
+
+        # Falls Resume-Link benutzt wurde: prüfen, ob Login zur SERIAL passt
+        if pending_serial and user.sosci_serial != pending_serial:
+            flash("Dieser Login gehört nicht zum aufgerufenen Studienlink.")
+            return render_template("login.html", prefill_username=prefill_username)
+
+        session["user_id"] = user.id
+        return redirect(url_for("chat"))
+
+    return render_template("login.html", prefill_username=prefill_username)
+
+
+@app.route("/chat")
+def chat():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, user_id)
+    if not user:
+        session.clear()
+        return redirect(url_for("login"))
+
+    return render_template("chat.html", username=user.username, serial=user.sosci_serial)
 
 
 @app.route("/logout")
 def logout():
     session.clear()
+    flash("Sie wurden ausgeloggt.")
     return redirect(url_for("login"))
 
 
-@app.route("/")
-def home():
-    if not require_login():
-        return redirect(url_for("login"))
-
-    return render_template(
-        "index1.html",
-        username=session["username"],
-        participant_id=get_participant_id()
-    )
-
-
-@app.route("/load_chat", methods=["GET"])
-def load_chat():
-    if not require_login():
-        return jsonify({"error": "Nicht eingeloggt"}), 401
-
-    try:
-        chat_history = load_chat_history_from_seafile()
-        return jsonify({"chat_history": chat_history})
-    except Exception as e:
-        return jsonify({"error": f"Fehler beim Laden: {str(e)}"}), 500
-
-
-@app.route("/send", methods=["POST"])
-def send():
-    if not require_login():
-        return jsonify({"error": "Nicht eingeloggt"}), 401
-
-    data = request.get_json()
-    user_message = data.get("message", "").strip()
-
-    if not user_message:
-        return jsonify({"error": "Leere Nachricht"}), 400
-
-    try:
-        # Bereits gespeicherte, anonymisierte Historie laden
-        chat_history = load_chat_history_from_seafile()
-
-        # Für das Modell die aktuelle echte Eingabe nutzen
-        model_history = chat_history.copy()
-        model_history.append({
-            "role": "user",
-            "content": user_message
-        })
-
-        reply = ask_mistral(model_history)
-
-        # Für die Speicherung anonymisieren
-        chat_history.append({
-            "role": "user",
-            "content": anonymize_text(user_message)
-        })
-
-        chat_history.append({
-            "role": "assistant",
-            "content": anonymize_text(reply)
-        })
-
-        save_chat_history_to_seafile(chat_history)
-
-        return jsonify({"reply": reply})
-    except Exception as e:
-        print("Fehler:", repr(e))
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/test_seafile")
-def test_seafile():
-    if not require_login():
-        return jsonify({"error": "Nicht eingeloggt"}), 401
-
-    headers = {
-        "Authorization": f"Token {SEAFILE_TOKEN}",
-        "Accept": "application/json"
-    }
-
-    url = f"{SEAFILE_BASE_URL}/api2/repos/"
-    response = requests.get(url, headers=headers, timeout=30)
-
-    safe_prefix = ""
-    if SEAFILE_TOKEN:
-        safe_prefix = SEAFILE_TOKEN[:8]
-
-    return jsonify({
-        "status_code": response.status_code,
-        "response_text": response.text,
-        "token_exists": bool(SEAFILE_TOKEN),
-        "token_prefix": safe_prefix,
-        "token_length": len(SEAFILE_TOKEN) if SEAFILE_TOKEN else 0,
-        "base_url": SEAFILE_BASE_URL,
-        "repo_id": SEAFILE_REPO_ID,
-        "username": session.get("username"),
-        "participant_id": get_participant_id(),
-        "current_chat_file": get_chat_filename()
-    })
-
-
-@app.route("/test_anonymization")
-def test_anonymization():
-    sample = (
-        "Ich heiße Lisa Müller, wohne in Mainz, "
-        "ich war mit Paul einkaufen und habe Anna getroffen. "
-        "Mein Freund Max war auch dabei. "
-        "Meine E-Mail ist lisa@example.com, "
-        "meine Telefonnummer ist 0171 1234567 "
-        "und meine PLZ ist 55116."
-    )
-
-    return jsonify({
-        "original": sample,
-        "anonymized": anonymize_text(sample)
-    })
-
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)
