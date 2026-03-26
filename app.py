@@ -33,7 +33,7 @@ STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # -----------------------------
-# Blacklists / Hilfslisten
+# Hilfslisten für Anonymisierung
 # -----------------------------
 COMMON_GERMAN_CITIES = [
     "Mainz", "Wiesbaden", "Frankfurt", "Köln", "Berlin", "Hamburg", "München",
@@ -68,7 +68,8 @@ SAFE_CAPITALIZED_WORDS = {
 def get_db_connection():
     if not DATABASE_URL:
         raise Exception("DATABASE_URL ist nicht gesetzt.")
-    return psycopg2.connect(DATABASE_URL, sslmode="require")
+    return psycopg2.connect(DATABASE_URL)
+
 
 def init_db():
     conn = get_db_connection()
@@ -85,7 +86,8 @@ def init_db():
     cur.close()
     conn.close()
 
-def create_user(participant_id, username, password):
+
+def create_user(username, password):
     conn = get_db_connection()
     cur = conn.cursor()
     password_hash = generate_password_hash(password)
@@ -99,11 +101,12 @@ def create_user(participant_id, username, password):
     cur.close()
     conn.close()
 
+
 def get_user_by_username(username):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
-        SELECT id, participant_id, username, password_hash
+        SELECT id, username, password_hash
         FROM users
         WHERE username = %s
     """, (username,))
@@ -112,18 +115,16 @@ def get_user_by_username(username):
     conn.close()
     return user
 
-def get_user_by_participant_id(participant_id):
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT id, participant_id, username, password_hash
-        FROM users
-        WHERE participant_id = %s
-    """, (participant_id,))
-    user = cur.fetchone()
-    cur.close()
-    conn.close()
-    return user
+
+# -----------------------------
+# Datenbank direkt beim App-Start initialisieren
+# -----------------------------
+try:
+    init_db()
+    print("Datenbank initialisiert.")
+except Exception as e:
+    print("Datenbank-Initialisierung fehlgeschlagen:", repr(e))
+
 
 # -----------------------------
 # Hilfsfunktionen
@@ -134,18 +135,23 @@ def seafile_headers():
         "Accept": "application/json"
     }
 
+
 def require_login():
-    return "username" in session and "participant_id" in session
+    return "username" in session
+
 
 def get_participant_id():
     return session.get("username", "unknown")
 
+
 def get_chat_filename():
-    participant_id = get_participant_id()
-    return f"participant_{participant_id}_day{STUDY_DAY}.json"
+    username = get_participant_id()
+    return f"participant_{username}_day{STUDY_DAY}.json"
+
 
 def get_chat_path():
     return f"/{get_chat_filename()}"
+
 
 def mask_capitalized_name_phrase(phrase):
     words = phrase.split()
@@ -160,6 +166,7 @@ def mask_capitalized_name_phrase(phrase):
             masked_words.append("[NAME]" + suffix)
 
     return " ".join(masked_words)
+
 
 def anonymize_text(text):
     if not text:
@@ -285,6 +292,7 @@ def anonymize_text(text):
 
     return text
 
+
 def get_upload_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/upload-link/"
     response = requests.get(url, headers=seafile_headers(), timeout=30)
@@ -294,6 +302,7 @@ def get_upload_link():
 
     return response.text.strip('"')
 
+
 def get_update_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/update-link/"
     response = requests.get(url, headers=seafile_headers(), timeout=30)
@@ -302,6 +311,7 @@ def get_update_link():
         raise Exception(f"Update-Link fehlgeschlagen: {response.status_code} {response.text}")
 
     return response.text.strip('"')
+
 
 def get_download_link():
     url = f"{SEAFILE_BASE_URL}/api2/repos/{SEAFILE_REPO_ID}/file/"
@@ -322,6 +332,7 @@ def get_download_link():
 
     return response.text.strip('"')
 
+
 def load_chat_history_from_seafile():
     try:
         download_link = get_download_link()
@@ -341,6 +352,7 @@ def load_chat_history_from_seafile():
         return []
     except Exception:
         return []
+
 
 def upload_new_file_to_seafile(file_bytes):
     upload_link = get_upload_link()
@@ -365,6 +377,7 @@ def upload_new_file_to_seafile(file_bytes):
     if response.status_code != 200:
         raise Exception(f"Upload fehlgeschlagen: {response.status_code} {response.text}")
 
+
 def update_file_in_seafile(file_bytes):
     update_link = get_update_link()
 
@@ -387,6 +400,7 @@ def update_file_in_seafile(file_bytes):
     if response.status_code != 200:
         raise Exception(f"Update fehlgeschlagen: {response.status_code} {response.text}")
 
+
 def save_chat_history_to_seafile(chat_history):
     file_bytes = json.dumps(chat_history, ensure_ascii=False, indent=2).encode("utf-8")
 
@@ -396,6 +410,7 @@ def save_chat_history_to_seafile(chat_history):
         update_file_in_seafile(file_bytes)
     else:
         upload_new_file_to_seafile(file_bytes)
+
 
 def ask_mistral(chat_history):
     messages = [
@@ -440,6 +455,7 @@ def ask_mistral(chat_history):
     result = response.json()
     return result["choices"][0]["message"]["content"]
 
+
 # -----------------------------
 # Routen
 # -----------------------------
@@ -465,6 +481,7 @@ def register():
             create_user(username, password)
             return redirect(url_for("login"))
         except Exception as e:
+            print("Registrierungsfehler:", repr(e))
             return render_template(
                 "register.html",
                 error=f"Registrierung fehlgeschlagen: {str(e)}"
@@ -472,13 +489,18 @@ def register():
 
     return render_template("register.html")
 
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
 
-        user = get_user_by_username(username)
+        try:
+            user = get_user_by_username(username)
+        except Exception as e:
+            print("Login-Datenbankfehler:", repr(e))
+            return render_template("login.html", error=f"Datenbankfehler: {str(e)}")
 
         if user and check_password_hash(user["password_hash"], password):
             session["username"] = user["username"]
@@ -488,10 +510,12 @@ def login():
 
     return render_template("login.html")
 
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
 
 @app.route("/")
 def home():
@@ -504,6 +528,7 @@ def home():
         participant_id=get_participant_id()
     )
 
+
 @app.route("/load_chat", methods=["GET"])
 def load_chat():
     if not require_login():
@@ -514,6 +539,7 @@ def load_chat():
         return jsonify({"chat_history": chat_history})
     except Exception as e:
         return jsonify({"error": f"Fehler beim Laden: {str(e)}"}), 500
+
 
 @app.route("/send", methods=["POST"])
 def send():
@@ -554,6 +580,27 @@ def send():
         print("Fehler:", repr(e))
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/test_db")
+def test_db():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT NOW();")
+        now = cur.fetchone()
+        cur.close()
+        conn.close()
+        return jsonify({
+            "database_connected": True,
+            "server_time": str(now[0])
+        })
+    except Exception as e:
+        return jsonify({
+            "database_connected": False,
+            "error": str(e)
+        }), 500
+
+
 @app.route("/test_seafile")
 def test_seafile():
     if not require_login():
@@ -577,6 +624,7 @@ def test_seafile():
         "current_chat_file": get_chat_filename()
     })
 
+
 @app.route("/test_anonymization")
 def test_anonymization():
     sample = (
@@ -595,7 +643,7 @@ def test_anonymization():
         "anonymized": anonymize_text(sample)
     })
 
+
 if __name__ == "__main__":
-    init_db()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
