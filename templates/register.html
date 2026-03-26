@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login</title>
+  <title>Registrierung</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -64,24 +64,27 @@
 </head>
 <body>
   <div class="box">
-    <h1>Login</h1>
+    <h1>Registrierung</h1>
 
     {% if error %}
       <div class="error">{{ error }}</div>
     {% endif %}
 
     <div class="hint">
-      Bitte melden Sie sich mit Ihrem Benutzernamen und Passwort an.
+      Bitte legen Sie einmalig Ihren Benutzernamen und Ihr Passwort fest.
     </div>
 
-    <form method="POST" action="/login">
+    <form method="POST" action="/register">
+      <label for="participant_id">Teilnehmer-ID</label>
+      <input type="text" id="participant_id" name="participant_id" value="{{ participant_id }}" readonly>
+
       <label for="username">Benutzername</label>
       <input type="text" id="username" name="username" required>
 
       <label for="password">Passwort</label>
       <input type="password" id="password" name="password" required>
 
-      <button type="submit">Einloggen</button>
+      <button type="submit">Konto anlegen</button>
     </form>
   </div>
 </body>
