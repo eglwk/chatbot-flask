@@ -480,34 +480,55 @@ def ask_mistral(chat_history):
 # Routen
 # -----------------------------
 @app.route("/register", methods=["GET", "POST"])
+
 def register():
+
     if request.method == "POST":
+
         username = request.form.get("username", "").strip()
+
         password = request.form.get("password", "").strip()
 
         if not username or not password:
+
             return render_template(
+
                 "register.html",
+
                 error="Bitte alle Felder ausfüllen."
+
             )
 
         if get_user_by_username(username):
+
             return render_template(
+
                 "register.html",
+
                 error="Dieser Benutzername existiert bereits."
+
             )
 
         try:
+
             create_user(username, password)
-            return redirect(url_for("login"))
+
+            return render_template("register_success.html", username=username)
+
         except Exception as e:
+
             print("Registrierungsfehler:", repr(e))
+
             return render_template(
+
                 "register.html",
+
                 error=f"Registrierung fehlgeschlagen: {str(e)}"
+
             )
 
     return render_template("register.html")
+ 
 
 
 @app.route("/login", methods=["GET", "POST"])
