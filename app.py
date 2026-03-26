@@ -679,6 +679,19 @@ def test_anonymization():
 def healthz():
     return "ok", 200
 
+@app.route("/test_users")
+def test_users():
+   try:
+       conn = get_db_connection()
+       cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+       cur.execute("SELECT id, username, created_at FROM users ORDER BY id;")
+       rows = cur.fetchall()
+       cur.close()
+       conn.close()
+       return jsonify(rows)
+   except Exception as e:
+       return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
