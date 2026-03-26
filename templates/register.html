@@ -55,11 +55,6 @@
       border-radius: 8px;
       margin-bottom: 16px;
     }
-    .hint {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 16px;
-    }
   </style>
 </head>
 <body>
@@ -70,14 +65,11 @@
       <div class="error">{{ error }}</div>
     {% endif %}
 
-    <div class="hint">
-      Bitte legen Sie einmalig Ihren Benutzernamen und Ihr Passwort fest.
-    </div>
+    <p style="font-size: 13px; color: #666;">
+  Bitte wählen Sie einen Benutzernamen, der keinen Rückschluss auf Ihre Person zulässt.
+</p>
 
     <form method="POST" action="/register">
-      <label for="participant_id">Teilnehmer-ID</label>
-      <input type="text" id="participant_id" name="participant_id" value="{{ participant_id }}" readonly>
-
       <label for="username">Benutzername</label>
       <input type="text" id="username" name="username" required>
 
