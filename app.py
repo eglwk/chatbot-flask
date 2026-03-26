@@ -15,6 +15,8 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bitte-spaeter-sicher-ersetz
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_PARTITIONED"] = True
+app.config["SESSION_COOKIE_NAME"] = "chatbot_session_v2"
+
 
 # -----------------------------
 # API / externe Dienste
@@ -692,6 +694,18 @@ def test_users():
    except Exception as e:
        return jsonify({"error": str(e)}), 500
 
+@app.route("/test_session")
+
+def test_session():
+
+    return jsonify({
+
+        "session_username": session.get("username"),
+
+        "logged_in": require_login()
+
+    })
+ 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
