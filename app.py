@@ -39,6 +39,36 @@ SEAFILE_TOKEN = os.environ.get("SEAFILE_TOKEN")
 SEAFILE_REPO_ID = os.environ.get("SEAFILE_REPO_ID")
 STUDY_DAY = os.environ.get("STUDY_DAY", "1")
 
+# -----------------------------
+# Blacklists / Hilfslisten
+# -----------------------------
+COMMON_GERMAN_CITIES = [
+    "Mainz", "Wiesbaden", "Frankfurt", "Köln", "Berlin", "Hamburg", "München",
+    "Stuttgart", "Darmstadt", "Mannheim", "Heidelberg", "Bonn", "Leipzig",
+    "Dresden", "Koblenz", "Trier", "Ingelheim", "Bad Kreuznach", "Ludwigshafen"
+]
+
+INSTITUTIONS = [
+    "JGU",
+    "Johannes Gutenberg-Universität",
+    "Johannes Gutenberg Universität",
+    "Universität Mainz",
+    "Uni Mainz",
+    "Universität",
+    "Hochschule",
+    "Schule",
+    "Klinik",
+    "Krankenhaus"
+]
+
+# Wörter, die großgeschrieben werden dürfen und nicht blind als Name maskiert werden sollen
+SAFE_CAPITALIZED_WORDS = {
+    "Ich", "Heute", "Gestern", "Morgen", "Montag", "Dienstag", "Mittwoch",
+    "Donnerstag", "Freitag", "Samstag", "Sonntag", "Januar", "Februar",
+    "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober",
+    "November", "Dezember", "Deutsch", "Deutschland"
+}
+
 
 # -----------------------------
 # Hilfsfunktionen
@@ -68,45 +98,156 @@ def get_chat_path():
     return f"/{get_chat_filename()}"
 
 
+def replace_listed_locations(text):
+    for city in sorted(COMMON_GERMAN_CITIES, key=len, reverse=True):
+        text = re.sub(rf"\b{re.escape(city)}\b", "[ORT]", text, flags=re.IGNORECASE)
+    return text
+
+
+def replace_listed_institutions(text):
+    for inst in sorted(INSTITUTIONS, key=len, reverse=True):
+        text = re.sub(rf"\b{re.escape(inst)}\b", "[INSTITUTION]", text, flags=re.IGNORECASE)
+    return text
+
+
+def mask_capitalized_name_phrase(phrase):
+    """
+    Maskiert 1-2 großgeschriebene Wörter als Namen.
+    Beispiel: 'Lisa' oder 'Lisa Müller'
+    """
+    words = phrase.split()
+    cleaned = []
+    for w in words:
+        if w in SAFE_CAPITALIZED_WORDS:
+            cleaned.append(w)
+        else:
+            cleaned.append("[NAME]")
+    return " ".join(cleaned)
+
+
 def anonymize_text(text):
     """
-    Einfache und robuste Anonymisierung per Regex.
-    Damit werden offensichtliche personenbezogene Daten vor dem Speichern ersetzt.
+    Strengere Regex-Anonymisierung.
+    Ziel: möglichst viele personenbezogene Daten vor dem Speichern ersetzen.
     """
     if not text:
         return text
 
-    # E-Mail-Adressen
-    text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)
+    # -----------------------------
+    # Strukturierte Daten
+    # -----------------------------
+    text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[EMAIL]', text)  # E-Mail
+    text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)  # Telefon
+    text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)  # URLs
+    text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b', '[IBAN]', text)  # IBAN
+    text = re.sub(r'\b\d{5}\b', '[PLZ]', text)  # Postleitzahl
+    text = re.sub(r'\b\d{1,2}\.\d{1,2}\.\d{2,4}\b', '[DATUM]', text)  # Datum
+    text = re.sub(r'\b\d{1,2}/\d{1,2}/\d{2,4}\b', '[DATUM]', text)  # Datum alt.
+    text = re.sub(r'@[A-Za-z0-9_\.]+', '[USERNAME]', text)  # Social / Handles
 
-    # Telefonnummern
-    text = re.sub(r'(\+?\d[\d\s\/\-\(\)]{6,}\d)', '[PHONE]', text)
-
-    # URLs
-    text = re.sub(r'https?://\S+|www\.\S+', '[URL]', text)
-
-    # IBAN
-    text = re.sub(r'\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b', '[IBAN]', text)
-
-    # Deutsche Postleitzahlen
-    text = re.sub(r'\b\d{5}\b', '[PLZ]', text)
-
-    # Einfache Muster für Namensangaben
+    # Straßen + Hausnummer
     text = re.sub(
-        r'\b(Ich heiße|Mein Name ist)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'\b[A-ZÄÖÜ][a-zäöüß\-]+(?:straße|str\.|weg|allee|platz|gasse|ring|ufer)\s+\d+[a-zA-Z]?\b',
+        '[ADRESSE]',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # Geburtsangaben / Alter
+    text = re.sub(r'\b(geboren am|mein geburtsdatum ist)\s+[^,.\n]+', r'\1 [DATUM]', text, flags=re.IGNORECASE)
+    text = re.sub(r'\bich bin\s+\d{1,3}\s+jahre?\s+alt\b', 'ich bin [ALTER] jahre alt', text, flags=re.IGNORECASE)
+
+    # -----------------------------
+    # Explizite Namensangaben
+    # -----------------------------
+    text = re.sub(
+        r'\b(Ich heiße|Mein Name ist|Ich bin)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){0,2})',
         r'\1 [NAME]',
         text
     )
 
-    # Einfache Muster für Wohnortangaben
+    # Kontakte / Beziehungen
     text = re.sub(
-        r'\b(Ich wohne in|Ich lebe in|Ich komme aus)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'\b(mein Freund|meine Freundin|mein Mann|meine Frau|mein Bruder|meine Schwester|meine Mutter|mein Vater|mein Sohn|meine Tochter|mein Kollege|meine Kollegin)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+){0,2})',
+        r'\1 [NAME]',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # -----------------------------
+    # Wohnort / Herkunft / Institution
+    # -----------------------------
+    text = re.sub(
+        r'\b(Ich wohne in|Ich lebe in|Ich komme aus|Ich bin aus|Mein Wohnort ist)\s+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß\-]+){0,3})',
         r'\1 [ORT]',
         text
     )
 
-    # Geburtsdatum grob
-    text = re.sub(r'\b\d{1,2}\.\d{1,2}\.\d{2,4}\b', '[DATUM]', text)
+    text = re.sub(
+        r'\b(Ich arbeite bei|Ich arbeite an|Ich studiere an|Ich studiere bei|Ich bin an der|Ich bin bei)\s+([^,.\n]+)',
+        r'\1 [INSTITUTION]',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # feste Listen
+    text = replace_listed_locations(text)
+    text = replace_listed_institutions(text)
+
+    # -----------------------------
+    # Namen nach typischen Kontexten
+    # -----------------------------
+    # Beispiele:
+    # "mit Lisa einkaufen"
+    # "bei Max"
+    # "von Anna"
+    # "für Paul"
+    # "zusammen mit Lisa Müller"
+    context_patterns = [
+        r'(\bmit)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'(\bbei)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'(\bvon)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'(\bfür)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'(\bzusammen mit)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'(\bneben)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'(\bgegenüber von)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)'
+    ]
+
+    for pattern in context_patterns:
+        def repl(match):
+            prefix = match.group(1)
+            name_phrase = match.group(2)
+            return f"{prefix} {mask_capitalized_name_phrase(name_phrase)}"
+        text = re.sub(pattern, repl, text)
+
+    # -----------------------------
+    # Verben + Name
+    # Beispiele:
+    # "ich habe Lisa getroffen"
+    # "ich schrieb Max"
+    # "ich rief Anna an"
+    # -----------------------------
+    verb_name_patterns = [
+        r'(\b(?:habe|hatte|treffe|traf|gesehen|sah|kenne|kannte|schrieb|schreibe|rief|rufe|telefonierte mit|sprach mit)\b)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)'
+    ]
+
+    for pattern in verb_name_patterns:
+        def repl2(match):
+            verb = match.group(1)
+            name_phrase = match.group(2)
+            return f"{verb} {mask_capitalized_name_phrase(name_phrase)}"
+        text = re.sub(pattern, repl2, text, flags=re.IGNORECASE)
+
+    # -----------------------------
+    # Sehr aggressive Restregel:
+    # Großgeschriebenes Wortpaar nach "mit/bei/von/für" etc. ist schon oben abgedeckt.
+    # Hier maskieren wir zusätzlich "Herr X", "Frau Y", "Dr. Z"
+    # -----------------------------
+    text = re.sub(
+        r'\b(Herr|Frau|Dr\.|Prof\.)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)',
+        r'\1 [NAME]',
+        text
+    )
 
     return text
 
@@ -400,7 +541,9 @@ def test_seafile():
 def test_anonymization():
     sample = (
         "Ich heiße Lisa Müller, wohne in Mainz, "
-        "meine E-Mail ist lisa@example.com, "
+        "ich war mit Paul einkaufen und habe Anna getroffen. "
+        "Mein Freund Max war auch dabei. "
+        "Meine E-Mail ist lisa@example.com, "
         "meine Telefonnummer ist 0171 1234567 "
         "und meine PLZ ist 55116."
     )
